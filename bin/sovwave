@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# bin/sovwave — Sovwave one-liner terminal launcher
+#
+# Usage:
+#   sovwave                         # launches GUI on port 8080
+#   sovwave --port 9090             # custom port
+#   sovwave --no-browser            # don't auto-open browser
+#   sovwave --host 0.0.0.0          # bind to all interfaces
+#   sovwave --help                  # show help
+#
+# Install to PATH:
+#   sudo ln -s "$(pwd)/bin/sovwave" /usr/local/bin/sovwave
+#   # or add sovwave/bin to your PATH in ~/.bashrc
+
+set -euo pipefail
+
+PORT=8080
+HOST="127.0.0.1"
+OPEN_BROWSER="true"
+
+print_help() {
+    cat <<EOF
+Sovwave — Pure Wave Computing Deep Learning Library
+
+Usage: sovwave [OPTIONS]
+
+Options:
+  --port    PORT     GUI server port (default: 8080)
+  --host    HOST     Server host/interface (default: 127.0.0.1)
+  --no-browser       Do not automatically open browser
+  --help             Show this help message
+
+Examples:
+  sovwave                          # Open GUI at http://127.0.0.1:8080
+  sovwave --port 9090              # Custom port
+  sovwave --host 0.0.0.0 --port 8080   # Accessible from LAN
+
+One-liner from Julia REPL:
+  using Sovwave; launch_gui(port=8080, open_browser=true)
+
+EOF
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --port)
+            PORT="$2"; shift 2 ;;
+        --host)
+            HOST="$2"; shift 2 ;;
+        --no-browser)
+            OPEN_BROWSER="false"; shift ;;
+        --help|-h)
+            print_help; exit 0 ;;
+        *)
+            echo "Unknown option: $1"
+            print_help; exit 1 ;;
+    esac
+done
+
+# Locate Julia
+JULIA_BIN=""
+for candidate in julia /opt/julia/bin/julia /usr/local/bin/julia "$HOME/.local/bin/julia"; do
+    if command -v "$candidate" &>/dev/null; then
+        JULIA_BIN="$candidate"
+        break
+    fi
+done
+
+if [[ -z "$JULIA_BIN" ]]; then
+    echo "ERROR: julia not found in PATH."
+    echo "       Install Julia from https://julialang.org/downloads/"
+    echo "       or set the JULIA_BIN environment variable."
+    exit 1
+fi
+
+# Locate the Sovwave project directory (parent of this script)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+echo "🌊 Sovwave v0.3.0"
+echo "   Julia:   $JULIA_BIN"
+echo "   Project: $SCRIPT_DIR"
+echo "   URL:     http://$HOST:$PORT"
+echo ""
+
+exec "$JULIA_BIN" \
+    --project="$SCRIPT_DIR" \
+    -e "using Sovwave; launch_gui(port=$PORT, host=\"$HOST\", open_browser=$OPEN_BROWSER)"

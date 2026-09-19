@@ -43,6 +43,7 @@ include("Training.jl")
 include("Serialize.jl")
 include("Inference.jl")
 include("Introspect.jl")
+include("CUDASupport.jl")
 
 # Public exports: Config
 export WaveFieldConfig, WaveModelConfig, WaveTrainConfig, WaveAudioConfig, WaveVideoConfig, WaveMLConfig, parse_color_rgb
@@ -103,5 +104,8 @@ export infer, predict
 
 # Public exports: Sonification
 export sonify_model, sonify_step, save_wav, play_realtime!
+
+# Public exports: CUDA (optional GPU acceleration)
+export enable_cuda!, disable_cuda!, cuda_available, to_gpu, to_cpu
 
 end # module WaveML

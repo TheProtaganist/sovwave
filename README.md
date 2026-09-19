@@ -1,39 +1,44 @@
-# 🌊 Sovwave.jl (v0.2.1)
+# 🌊 Sovwave.jl (v0.3.0)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Julia](https://img.shields.io/badge/Julia-1.9%2B-blue.svg)](https://julialang.org)
 [![Tuning](https://img.shields.io/badge/Tuning-432Hz%20Sacred%20Harmonics-emerald.svg)](https://en.wikipedia.org/wiki/Concert_pitch)
 [![Architecture](https://img.shields.io/badge/Architecture-Pure%20Wave%20Computing-purple.svg)](#-core-architecture)
 [![Model Format](https://img.shields.io/badge/Model%20Format-Dual--Stream%20MKV%20Video-red.svg)](#-emergent-video-model-serialization)
+[![CUDA](https://img.shields.io/badge/CUDA-Optional%20GPU-green.svg)](#-optional-cuda-gpu-acceleration)
 [![Documentation](https://img.shields.io/badge/Docs-GitHub%20Pages-cyan.svg)](https://theprotaganist.github.io/sovwave/)
 
 > **Pure Wave Computing, Quantum-Acoustic Deep Learning, and Morphogenetic Intelligence in Julia.**
 >
-> Zero Matrix Multiplications. Zero Backpropagation. Zero Markov Chains. Continuous physical wave mechanics competing directly with PyTorch, JAX, NumPy, and Flux.jl. Models serialized losslessly as playable, glowing audio-visual video files.
+> Zero Matrix Multiplications. Zero Backpropagation. Zero Markov Chains. Continuous physical wave mechanics competing directly with PyTorch, JAX, NumPy, and Flux.jl. Models serialized losslessly as playable, glowing audio-visual video files. **Run inference in Python, C++, JavaScript, Java, or C# with zero Julia dependency.**
 
 ---
 
 ## 📖 Table of Contents
 1. [Overview & Philosophy](#-overview--philosophy)
 2. [Direct Installation via Julia Pkg](#-direct-installation-via-julia-pkg)
-3. [Local Visual Quantum GUI](#-local-visual-quantum-gui)
-4. [Competitor Comparison Matrix (Sovwave vs PyTorch, JAX, NumPy, Flux)](#-competitor-comparison-matrix)
-5. [Universal Multilingual & Emoji Wave Tokenizer](#-universal-multilingual--emoji-wave-tokenizer)
-6. [Complete Step-by-Step Training Guide](#-complete-step-by-step-training-guide)
-7. [Multi-Modal Dataset Formatting & DataLoaders](#-multi-modal-dataset-formatting--dataloaders)
-8. [Native Hugging Face Hub Integration](#-native-hugging-face-hub-integration)
-9. [The 5 Native Model Architectures](#-the-5-native-model-architectures)
-   - [1. LLM (:llm) — Autoregressive Harmonic Wave Language Model](#1-wave-large-language-model-llm)
-   - [2. Image Generation (:image_generation) — 2D Surface De-interference](#2-wave-image-generator-image_generation)
-   - [3. Text-to-3D (:text_to_3d) — Volumetric Radiance Fields](#3-wave-text-to-3d-text_to_3d)
-   - [4. Jev Decision Engine (:jev) — Hallucination-Immune Decisions](#4-jev-decision-engine-jev)
-   - [5. Text-to-Video (:text_to_video) — Spatio-Temporal Wave Dynamics](#5-wave-text-to-video-text_to_video)
-10. [Model Reading & Introspection API](#-model-reading--introspection-api)
-11. [Emergent Video Model Serialization (.mkv & .mp4)](#-emergent-video-model-serialization)
-12. [Trained Lattice Audio Sonification](#-trained-lattice-audio-sonification)
-13. [7x144 Evolutionary Tournament Grand Champions](#-7x144-evolutionary-tournament-grand-champions)
-14. [Documentation & GitHub Pages](#-documentation--github-pages)
-15. [License](#-license)
+3. [One-Liner Terminal Launch](#-one-liner-terminal-launch)
+4. [Local Visual Quantum GUI](#-local-visual-quantum-gui)
+5. [Optional CUDA GPU Acceleration](#-optional-cuda-gpu-acceleration)
+6. [Fractal Dimension & Wave Speed per Node](#-fractal-dimension--wave-speed-per-node)
+7. [Competitor Comparison Matrix (Sovwave vs PyTorch, JAX, NumPy, Flux)](#-competitor-comparison-matrix)
+8. [Universal Multilingual & Emoji Wave Tokenizer](#-universal-multilingual--emoji-wave-tokenizer)
+9. [Complete Step-by-Step Training Guide](#-complete-step-by-step-training-guide)
+10. [Multi-Modal Dataset Formatting & DataLoaders](#-multi-modal-dataset-formatting--dataloaders)
+11. [Native Hugging Face Hub Integration](#-native-hugging-face-hub-integration)
+12. [The 5 Native Model Architectures](#-the-5-native-model-architectures)
+    - [1. LLM (:llm) — Autoregressive Harmonic Wave Language Model](#1-wave-large-language-model-llm)
+    - [2. Image Generation (:image_generation) — 2D Surface De-interference](#2-wave-image-generator-image_generation)
+    - [3. Text-to-3D (:text_to_3d) — Volumetric Radiance Fields](#3-wave-text-to-3d-text_to_3d)
+    - [4. Jev Decision Engine (:jev) — Hallucination-Immune Decisions](#4-jev-decision-engine-jev)
+    - [5. Text-to-Video (:text_to_video) — Spatio-Temporal Wave Dynamics](#5-wave-text-to-video-text_to_video)
+13. [Cross-Language MKV Runtimes (Python/C++/JS/Java/C#)](#-cross-language-mkv-runtimes)
+14. [Model Reading & Introspection API](#-model-reading--introspection-api)
+15. [Emergent Video Model Serialization (.mkv & .mp4)](#-emergent-video-model-serialization)
+16. [Trained Lattice Audio Sonification](#-trained-lattice-audio-sonification)
+17. [7x144 Evolutionary Tournament Grand Champions](#-7x144-evolutionary-tournament-grand-champions)
+18. [Documentation & GitHub Pages](#-documentation--github-pages)
+19. [License](#-license)
 
 ---
 
@@ -85,6 +90,98 @@ Features:
 - **Universal Multilingual Tokenizer**: Interactive sound synthesis testing multilingual sentences and emojis through browser speakers via Web Audio API.
 - **5-Model Playground**: Interactive prompt execution for LLM, 2D Image Gen, 3D Radiance Fields, Jev Decision Engine, and MKV Video frames.
 - **YAML Config Manager**: Live parameter editing and export for `model_config.yaml`.
+
+---
+
+## 🚀 One-Liner Terminal Launch
+
+Launch the full Sovwave GUI from anywhere with a single command:
+
+```julia
+# From Julia REPL or script
+using Sovwave
+launch_gui(port=8080, open_browser=true)
+```
+
+Or using the included shell script:
+```bash
+# From terminal (no Julia code needed)
+./bin/sovwave                          # http://127.0.0.1:8080
+./bin/sovwave --port 9090              # Custom port
+./bin/sovwave --host 0.0.0.0           # Accessible from LAN
+./bin/sovwave --no-browser             # Server only, no auto-open
+
+# Install to system PATH for global access
+sudo ln -s "$(pwd)/bin/sovwave" /usr/local/bin/sovwave
+sovwave --port 8080                    # works from any directory
+```
+
+---
+
+## ⚡ Optional CUDA GPU Acceleration
+
+Sovwave supports optional GPU acceleration via [CUDA.jl](https://github.com/JuliaGPU/CUDA.jl). When installed, all wave layer arrays move to GPU memory and the forward pass runs as a parallelized CUDA kernel — one GPU thread per lattice node.
+
+```julia
+# Install CUDA.jl (only needed once)
+using Pkg; Pkg.add("CUDA")
+
+# Enable GPU acceleration
+using CUDA, Sovwave
+enable_cuda!()          # ✅ GPU enabled — arrays move to CuMatrix/CuVector
+
+model = WaveModel(cfg)  # built on GPU
+train!(model, ds...)    # GPU-accelerated training loop
+
+# Move model between devices
+to_gpu(model)           # CPU → GPU
+to_cpu(model)           # GPU → CPU
+disable_cuda!()         # back to CPU mode
+
+# Check status
+cuda_available()        # true/false
+```
+
+When CUDA.jl is **not installed**, all CUDA functions are safe no-ops:
+```julia
+enable_cuda!()   # prints friendly install instructions, returns false
+```
+
+> **MKV models** saved from GPU are 100% compatible with CPU runtimes. The `.mkv` format is device-independent.
+
+---
+
+## 🌀 Fractal Dimension & Wave Speed per Node
+
+Every quantum lattice node in Sovwave v0.3.0 now carries **six** learnable physical parameters:
+
+| Parameter | Symbol | Range | Default | Meaning |
+|-----------|--------|-------|---------|---------|
+| Amplitude | `A` | [0.001, 3.0] | 0.5 | Radiant wave intensity |
+| Phase | `φ` | [0, 2π] | varied | Wave offset |
+| Frequency | `f` | [0.1, 10.0] | 1.0+ | Relative frequency multiplier |
+| Fractal Scale | `β_s` | [0.5, 4.0] | φ≈1.618 | Golden-ratio amplitude envelope |
+| **Fractal Dim** | **`D_f`** | **[1.0, 3.0]** | **1.5** | **Hausdorff fractal dimension** |
+| **Wave Speed** | **`v`** | **[0.1, 10.0] or -1** | **1.0** | **Propagation speed (-1 = unlimited)** |
+
+### Fractal Dimension (`fractal_dim`)
+Controls the self-similar geometric zoom of the wave envelope at each node. `D_f = 1.0` is linear (1D wire), `D_f = 2.0` is planar (2D surface), `D_f = 1.5` is the midpoint fractal (default). The envelope scales the node output by `r_norm^(D_f - 1)`.
+
+### Wave Speed (`wave_speed`)
+Controls how fast the wave propagates through a node's local manifold:
+- **`v > 0`** (finite speed): `angle = ω·f·(x/v) + φ - t` — wave experiences propagation delay
+- **`v = -1.0`** (unlimited/instantaneous): `angle = ω·f·x + φ - t` — no speed divisor, instantaneous
+- Mutation **never** accidentally drifts into the `-1.0` sentinel — unlimited must be set intentionally
+
+```julia
+# Create layers with custom fractal/speed settings
+layer = create_layer(64, 32; fractal_dim=2.0, wave_speed=0.5)
+layer_inf = create_layer(64, 32; wave_speed=-1.0)   # unlimited speed all nodes
+
+# Both fields are fully learnable: mutate!, crossover work correctly
+mutate!(layer, 0.01)
+child = crossover(layer_a, layer_b)  # blends fractal_dims and wave_speeds
+```
 
 ---
 
@@ -299,6 +396,49 @@ println("Layer 1 Frequencies: min=", details[:frequencies][:min])
 # Inspect model file directly from disk
 info = inspect_model("trained_brain.mkv")
 ```
+
+---
+
+## 🌐 Cross-Language MKV Runtimes
+
+A trained Sovwave `.mkv` model can be loaded and run in **Python, C++, JavaScript, Java, or C#** — no Julia dependency, just `ffmpeg`.
+
+All runtimes are in `runtimes/` and implement the same wave forward pass (including `fractal_dim` and `wave_speed`):
+
+### Python (3.8+, stdlib only)
+```python
+from runtimes.python.sovwave_runtime import SovwaveModel
+model   = SovwaveModel.load("my_model.mkv", "my_model_meta.yaml")
+outputs = model.predict([[0.1, 0.2, 0.3, 0.4]])
+```
+
+### C++17 (header-only)
+```cpp
+#include "runtimes/cpp/sovwave_runtime.hpp"
+auto model  = sovwave::SovwaveModel::load("my_model.mkv");
+auto output = model.predict({{0.1, 0.2, 0.3, 0.4}});
+```
+
+### JavaScript (Node.js 14+)
+```javascript
+const { SovwaveModel } = require('./runtimes/js/sovwave_runtime');
+const model   = await SovwaveModel.load('my_model.mkv');
+const outputs = model.predict([[0.1, 0.2, 0.3, 0.4]]);
+```
+
+### Java (11+)
+```java
+SovwaveModel model = SovwaveModel.load("my_model.mkv", "my_model_meta.yaml");
+double[][] out = model.predict(new double[][]{{ 0.1, 0.2, 0.3, 0.4 }});
+```
+
+### C# (.NET 6+)
+```csharp
+var model = await SovwaveModel.LoadAsync("my_model.mkv");
+var out   = model.Predict(new[] { new[] { 0.1, 0.2, 0.3, 0.4 } });
+```
+
+Full documentation: [`runtimes/README.md`](runtimes/README.md)
 
 ---
 

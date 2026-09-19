@@ -11,7 +11,7 @@ module Sovwave
 
 using Base # explicit self-containment intent (empty deps; nothing but stdlib/Base)
 
-const VERSION = v"0.2.1"
+const VERSION = v"0.3.0"
 
 # --- guarded includes --------------------------------------------------------
 const _SRC_DIR = joinpath(@__DIR__)
@@ -91,6 +91,9 @@ export load_hf_dataset, hf_auth_token, hf_dataset_info
 export generate_text, generate_image, generate_3d, jev_decide, generate_video
 export inspect_model, model_summary, parameter_count, num_layers, get_layer, layer_details
 export save_model, load_model, infer, predict, train!, sonify_model, save_wav
+
+# Optional GPU acceleration
+export enable_cuda!, disable_cuda!, cuda_available, to_gpu, to_cpu
 
 # Visual GUI Server
 using .GUI

@@ -8,6 +8,10 @@ properties that compute when hit by propagating waves.
 
 Incorporates the tournament champion algorithm:
 👑 `legendre_poly_prop` + `preallocated_simd_prop` (305.50 score, 5.1 ns/pt).
+
+Each node also carries:
+- `fractal_dim::Float64`  — Hausdorff/box-counting fractal dimension D_f ∈ [1.0, 3.0]
+- `wave_speed::Float64`   — Propagation speed v. Set to -1.0 for unlimited (instantaneous).
 """
 
 using Printf
@@ -24,6 +28,10 @@ A single data point situated in a continuous d-dimensional wave manifold.
 - `energy::Float64`: Accumulated computational wave energy
 - `velocity::Vector{Float64}`: Phase velocity vector across the d dimensions
 - `hit_count::Int`: Number of wave interactions
+- `fractal_dim::Float64`: Hausdorff fractal dimension D_f ∈ [1.0, 3.0] (default 1.5).
+  Controls self-similar zoom of the wave envelope at this point.
+- `wave_speed::Float64`: Wave propagation speed v (default 1.0).
+  Set to -1.0 for unlimited / instantaneous propagation (bypasses speed divisor).
 """
 mutable struct WaveFieldPoint
     position::Vector{Float64}
@@ -31,10 +39,17 @@ mutable struct WaveFieldPoint
     energy::Float64
     velocity::Vector{Float64}
     hit_count::Int
+    fractal_dim::Float64
+    wave_speed::Float64
 
-    function WaveFieldPoint(pos::Vector{Float64}, vals::Vector{Float64})
+    function WaveFieldPoint(
+        pos::Vector{Float64},
+        vals::Vector{Float64};
+        fractal_dim::Float64 = 1.5,
+        wave_speed::Float64 = 1.0
+    )
         d = length(pos)
-        new(pos, vals, 0.0, zeros(Float64, d), 0)
+        new(pos, vals, 0.0, zeros(Float64, d), 0, fractal_dim, wave_speed)
     end
 end
 
@@ -128,6 +143,13 @@ Propagates a continuous wave across all data points in the d-dimensional field.
 Uses the tournament-winning **Legendre-Orthogonal SIMD Wave Evaluation** kernel:
 \$P_2(x) = \\frac{1}{2}(3x^2 - 1)\$ combined with phase resonance across all d dimensions.
 
+Per-point `fractal_dim` (D_f) modulates the Legendre envelope via `r_norm^(D_f - 1)`,
+encoding self-similar fractal geometry into the wave interaction.
+
+Per-point `wave_speed` (v) modulates the phase accumulation rate:
+- `v > 0`: `angle = ω·freq·(r_norm / v) - t + φ`  (finite propagation delay)
+- `v == -1.0`: `angle = ω·freq·r_norm - t + φ`     (unlimited / instantaneous)
+
 Each data point performs computations when hit by the wave, updating its values
 and contributing to the overall field energy.
 """
@@ -151,20 +173,24 @@ function propagate_field!(
     @inbounds for i in 1:n
         pt = field.points[i]
         pos = pt.position
+        v_spd = pt.wave_speed  # -1.0 = unlimited
+        d_f = pt.fractal_dim   # Hausdorff fractal dimension
 
         # Compute d-dimensional manifold radius and Legendre projection
         r2 = 0.0
-        r_linear = 0.0
         @simd for k in 1:d
             pk = pos[k]
             r2 = muladd(pk, pk, r2)
-            r_linear += pk
         end
         r = sqrt(r2)
         r_norm = r / (2π * sqrt(Float64(d)) + 1e-12)
 
         # Champion Legendre orthogonal polynomial wave modulation: P_2(x) = 0.5 * (3x² - 1)
         leg_mod = 0.5 * muladd(3.0, r_norm * r_norm, -1.0)
+
+        # Fractal dimension envelope: r_norm^(D_f - 1) — higher D_f = finer self-similar detail
+        # Clamped r_norm to avoid 0^negative
+        fractal_envelope = (d_f ≈ 1.5) ? 1.0 : (r_norm > 1e-12 ? r_norm^(d_f - 1.0) : 0.0)
 
         # Multi-harmonic wave superposition across channels
         net_wave = 0.0
@@ -173,12 +199,13 @@ function propagate_field!(
             ph = phases[ch]
             freq = frequencies[ch]
 
-            # Wave phase: ω·freq·r - t + φ
-            angle = muladd(omega * freq, r_norm, ph - t)
+            # Speed-aware wave phase: unlimited (v=-1) or finite propagation
+            r_eff = v_spd == -1.0 ? r_norm : r_norm / max(v_spd, 1e-12)
+            angle = muladd(omega * freq, r_eff, ph - t)
             wave_val = amp * sin(angle)
 
-            # Modulate with Legendre spectral envelope
-            harmonic_val = muladd(wave_val, 1.0 + 0.2 * leg_mod, 0.0)
+            # Modulate with Legendre spectral envelope + fractal geometry
+            harmonic_val = wave_val * (1.0 + 0.2 * leg_mod) * fractal_envelope
             net_wave += harmonic_val
         end
 
