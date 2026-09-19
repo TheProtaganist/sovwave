@@ -849,18 +849,21 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
         "th", "he", "in", "er", "an", "re", "on", "at", "en", "nd", "ti", "es", "or", "te", "of",
         "ed", "is", "it", "al", "ar", "st", "to", "nt", "ng", "se", "ha", "as", "ou", "io", "le",
         "ve", "wa", "co", "mp", "ut", "ma", "rm", "ni", "ic", "pu", "tin", "mo", "de", "ri", "ro",
-        "the", "and", "for", "are", "but", "not", "you", "all", "any", "can", "her", "was", "one"
+        "la", "mi", "si", "po", "ta", "so", "me", "hi", "ne", "ea", "ra", "ce", "li", "ch", "ll",
+        "the", "and", "for", "are", "but", "not", "you", "all", "any", "can", "her", "was", "one",
+        "our", "out", "day", "get", "has", "him", "his", "how", "man", "new", "now", "old", "see",
+        "two", "way", "who", "boy", "did", "its", "let", "put", "say", "she", "too", "use"
       ]);
       
-      // Tokenize with FrequencyBPE
+      // Tokenize with FrequencyBPE (ONLY check lengths 3, 2 for vocab, NOT 8, 6, 4)
       const tokens = [];
       let idx = 0;
       
       while (idx < chars.length) {
         let matched = false;
         
-        // Try multi-char tokens [8, 6, 4, 2]
-        for (const len of [8, 6, 4, 2]) {
+        // Try 3-char common words first (the, and, for, etc.), then 2-char subwords
+        for (const len of [3, 2]) {
           if (idx + len <= chars.length) {
             const sub = chars.slice(idx, idx + len).join('');
             const inVocab = vocab.has(sub);
