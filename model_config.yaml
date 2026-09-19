@@ -1,0 +1,71 @@
+# ============================================================================
+# WaveML Model Configuration (Pure Wave-Based Computing)
+# ============================================================================
+
+# Wave Field: Data points exist on a d-dimensional continuous wave surface
+field:
+  n_points: 128
+  properties:
+    - mass
+    - charge
+    - energy
+    - spin
+  dimensions: 3
+  distribution: uniform
+
+# Model Architecture: Learnable wave parameters across l layers and n quantum nodes
+model:
+  layers: 4
+  embed_dims: 32
+  nodes: 64
+  omega: 432.0         # Harmonic frequency ω (Hz) driving temporal superposition
+  beta_s: 1.618033989  # Fractal scaling parameter (Golden Ratio Φ)
+  t_frames: 8          # Temporal superposition time frames
+
+# Training Parameters: Evolution-based optimization seeking ground state energy
+train:
+  batch_size: 16
+  learning_rate: 0.05  # Mutation amplitude scale
+  epochs: 50
+  population_size: 24
+  elite_fraction: 0.15
+  mutation_decay: 0.995
+  energy_target: 0.001
+  sonify: true            # Output training as audio
+  sonify_realtime: true   # Set true to ALSO stream to speakers in real-time
+  audio_sample_rate: 48000
+
+# User-Defined Sound & Audio Properties:
+# Full control over carrier frequency, waveform, binaural beats, tuning, and envelopes.
+# You can set carrier_frequency to 432.0, 440.0, 528.0 (Solfeggio), or ANY custom value!
+audio:
+  carrier_frequency: 432.0    # Carrier frequency in Hz (e.g., 432.0, 440.0, 528.0, or custom)
+  tuning_standard: 432.0      # Base tuning reference frequency in Hz
+  waveform: physical          # Waveform: sine, harmonic, physical, triangle, sawtooth, binaural
+  binaural_beat: 10.0         # Stereo beat frequency offset in Hz (e.g., 10.0 Alpha, 6.0 Theta, 0.0 off)
+  envelope: exponential_decay # Envelope: exponential_decay, adsr, percussive, sustain
+  attack: 0.02                # ADSR Attack time in seconds
+  decay: 0.15                 # ADSR Decay time in seconds
+  sustain: 0.60               # ADSR Sustain level (0.0 to 1.0)
+  release: 0.25               # ADSR Release time in seconds
+  harmonic_richness: 1.2      # Overtone richness factor (0.0 = pure fundamental, 2.0 = rich harmonics)
+  volume: 0.85                # Master audio volume gain (0.0 to 1.0)
+  pan: 0.0                    # Stereo pan (-1.0 = full left, 0.0 = center, +1.0 = full right)
+  sample_rate: 48000          # Audio sample rate in Hz (44100, 48000, 96000, 192000)
+  channels: 2                 # 1 = mono, 2 = stereo (allows binaural spatial depth)
+  realtime_player: auto       # Command for live speaker playback ("auto", "paplay", "aplay", "pw-play", "ffplay")
+
+# ============================================================================
+# Video Model Serialization Settings (MKV / MP4 Emergent Brain)
+# ============================================================================
+video:
+  render_mode: potts_model_q_state_domains   # Tournament Grand Champion (:potts_model_q_state_domains or :fibonacci_resonance)
+  pixel_scale: 2               # Pixel square size: 1 (smallest possible 1px), 2 (fine crisp), 4, 8, or "auto"
+  target_height: 480           # Screen display height when pixel_scale is "auto" (e.g. 480, 720, 1080)
+  fps: 4                       # Playback frame rate for post-convergence wave dynamics
+  frames: 16                   # Number of temporal steps from step n to step n_final
+  state_colors:                # Emergent 3-state Potts clock domain colors in RGB (0.0 to 1.0 or hex)
+    - [1.0, 0.0, 1.0]          # State 0: FF00FF (Magenta)
+    - [1.0, 1.0, 0.0]          # State 1: FFFF00 (Yellow)
+    - [0.0, 1.0, 1.0]          # State 2: 00FFFF (Cyan)
+

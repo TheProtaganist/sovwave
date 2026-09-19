@@ -1,0 +1,44 @@
+{
+  "_comment": "LIVING reference config, NOT a final product. Edit n, x, seeds, weights, thresholds, extra_metrics at ANY time EXCEPT mid-round (finish running round on old settings, log change+reason in owning l-2 task Result:, rerun affected tournaments from R1 if weights changed). Code reads this file; humans tune it.",
+  "evolve": {
+    "n": 12,
+    "x": 50,
+    "seeds": [1, 2, 3],
+    "saturation_rule": "a full round with no improvement on the composite score = saturated: log reason, stop. Stop-goal unmet after x rounds = keep evolving past x, reason logged.",
+    "note": "n = variants tested per round. R1 = n fresh variants. R2 = n children of winner. R3..x = n children of 2nd-winner variants. One ALG per evolve task, always."
+  },
+  "metrics": {
+    "_comment": "All weights should sum to 1.0 per ALG after overrides. higher_is_better=false means lower raw value scores higher.",
+    "accuracy": { "weight": 0.30, "higher_is_better": true, "desc": "correctness vs fixture/analytic ground truth" },
+    "speed": { "weight": 0.20, "higher_is_better": false, "desc": "wall-clock ms + scaling note per grid size" },
+    "complexity": { "weight": 0.10, "higher_is_better": false, "desc": "lines of code + allocations; simpler wins ties" },
+    "energy": { "weight": 0.15, "higher_is_better": false, "desc": "allocations x steps proxy for resource/energy cost" },
+    "stability": { "weight": 0.15, "higher_is_better": true, "desc": "noise/drift robustness (noisy fixtures, long runs)" },
+    "reproducibility": { "weight": 0.10, "higher_is_better": true, "desc": "seed-variance gate: high variance fails regardless of mean" }
+  },
+  "per_alg_overrides": {
+    "_comment": "Per-ALG weight/threshold tweaks. Missing ALGs use global metrics as-is.",
+    "ALG-WELL": { "metrics": { "accuracy": { "weight": 0.45 }, "speed": { "weight": 0.10 } }, "stop_goal": "C6 max-err < 1e-10 on 12-point + fuzz set AND fastest of the accurate variants" },
+    "ALG-ENC": { "stop_goal": "round-trip SNR > 60dB on sine+chirp+noise AND leakage below Hann baseline" },
+    "ALG-LAP": { "stop_goal": "plane-wave eigen L2 err < 1e-4 AND drift bounded over 1000 steps" },
+    "ALG-STEP": { "stop_goal": "max stable dt recorded AND drift < 1e-6 per 1000 steps at chosen dt" },
+    "ALG-FREE": { "stop_goal": "analytic match 1e-6 AND gradient FD-check 1e-6 AND F strictly monotonic on double-well fixture" },
+    "ALG-EXT": { "stop_goal": "100% mode accuracy on synthetic modes AND >= 95% at noise sigma 0.05" },
+    "ALG-PROTO": { "metrics": { "stability": { "weight": 0.30 }, "accuracy": { "weight": 0.25 } }, "stop_goal": "ONE winner by composite score across 3 seeds; sim-only, no hardware claims" },
+    "ALG-SOV": { "stop_goal": "matches reference sim 1e-6 AND linear grid scaling" },
+    "ALG-OPT": { "stop_goal": "fewest steps to |dF| < 1e-4 on double-well Omega across 3 seeds" },
+    "ALG-NLIN": { "stop_goal": "no blow-up for g in [0.1, 10] AND XOR-wave fixture separable" }
+  },
+  "tolerances": {
+    "julia": 1e-6,
+    "c6_symmetry": 1e-10,
+    "js": 1e-3,
+    "snr_db": 60
+  },
+  "grids": {
+    "unit": [32],
+    "standard": [64, 64],
+    "stress": [256, 256]
+  },
+  "extra_metrics": []
+}

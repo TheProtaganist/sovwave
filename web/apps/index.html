@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOVWave — Aetheria demos</title>
+  <link rel="stylesheet" href="_shared/app.css" />
+  <!-- Offline only: no CDN links anywhere (grep gated). -->
+</head>
+<body>
+  <header class="demo-header">
+    <h1>SOVWave · Aetheria demos</h1>
+    <p>
+      JavaScript mirrors of the Julia wave-compute library. Each demo mirrors the
+      agenda §4 components with shared constants from <code>_shared/wave-utils.js</code>.
+      SIMULATED v1 — no hardware claims (specs/Requirements.md REQ-PAPER-FIDELITY).
+    </p>
+  </header>
+
+  <div class="card-grid">
+    <a class="card" href="01-encoder/index.html">
+      <div class="card-title"><span class="status-dot pending"></span>01 · Harmonic Encoder</div>
+      <div class="card-sub">agenda §4.1 · REQ-ENC — draw a signal, watch X → Ω spectrum → decode.</div>
+      <div class="card-verdict">pending</div>
+    </a>
+    <a class="card" href="02-wells/index.html">
+      <div class="card-title"><span class="status-dot pending"></span>02 · Sacred Geometry Wells</div>
+      <div class="card-sub">agenda §4.2 · REQ-WELL — Flower-of-Life heatmap + C6 symmetry readout.</div>
+      <div class="card-verdict">pending</div>
+    </a>
+    <a class="card" href="03-simulator/index.html">
+      <div class="card-title"><span class="status-dot pending"></span>03 · Morphogenetic Simulator</div>
+      <div class="card-sub">agenda §4.3 · REQ-SIM — packet through wells, live free-energy F curve.</div>
+      <div class="card-verdict">pending</div>
+    </a>
+    <a class="card" href="04-extraction/index.html">
+      <div class="card-title"><span class="status-dot pending"></span>04 · Cymatic Extraction</div>
+      <div class="card-sub">agenda §4.4 · REQ-EXT — standing-wave nodes/antinodes → decoded label.</div>
+      <div class="card-verdict">pending</div>
+    </a>
+    <a class="card" href="05-hardware-api/index.html">
+      <div class="card-title"><span class="status-dot pending"></span>05 · Frequency Hardware API (sim)</div>
+      <div class="card-sub">agenda §4.5 · REQ-HW — audio / EMF / radio protocol switcher, SIM-ONLY banner.</div>
+      <div class="card-verdict">pending</div>
+    </a>
+    <a class="card" href="06-sov-network/index.html">
+      <div class="card-title"><span class="status-dot pending"></span>06 · SOV Network</div>
+      <div class="card-sub">Phase 3 · REQ-SOV — tiny train viz: encode → wells → simulate → extract.</div>
+      <div class="card-verdict">pending</div>
+    </a>
+    <a class="card" href="07-persistence/index.html">
+      <div class="card-title"><span class="status-dot pending"></span>07 · Persistence (mp4-of-gifs)</div>
+      <div class="card-sub">Phase 4 · REQ-STORE — frame-strip of training frequencies + metadata viewer.</div>
+      <div class="card-verdict">pending</div>
+    </a>
+  </div>
+
+  <footer class="demo-footer">
+    SIMULATED v1 · Node 10-compatible vanilla JS · no build step, opens from file://
+  </footer>
+</body>
+</html>

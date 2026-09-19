@@ -1,0 +1,25 @@
+# === Julia ===
+*.jl.cov
+*.jl.mem
+*.jl.*.cov
+/docs/build/
+.julia/
+
+# === Node (only if ever used — demos are dependency-free) ===
+node_modules/
+dist/
+
+# === Editor (keep per-repo settings) ===
+.vscode/*
+!.vscode/settings.json
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Backups: never commit tarballs (backup.sh rotation) ===
+Backups/
+
+# === Logs keep-dirs: dirs ship via .gitkeep, generated content is evidence — keep committed.
+#     If logs ever bloat, revisit via backup.sh/--exclude strategy. ===

@@ -1,0 +1,274 @@
+  Activating project at `~/Desktop/code/Julia/sovwave`
+┌ Warning: Aetheria: Core/Grid.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Core/WaveField.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Core/Constants.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Encoding/FrequencySpectrum.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Encoding/HarmonicEncoder.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Potentials/SacredGeometry.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Potentials/FlowerOfLife.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Potentials/MetatronsCube.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Simulation/MorphogeneticSimulator.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Simulation/TimeEvolution.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Simulation/EnergyFunctionals.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Extraction/EigenState.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Extraction/CymaticExtractor.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Optimization/WaveOptimizer.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Optimization/GradientFlow.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Optimization/AdamWave.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Loss/WaveLoss.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Loss/FrequencyDomainMSE.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Loss/PhaseCoherenceLoss.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Loss/FreeEnergyLoss.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Activation/WaveActivation.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Activation/WaveSigmoid.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Activation/WaveReLU.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Activation/WaveTanh.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Networks/SOVLayer.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Networks/SOVDense.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Networks/SOVNetwork.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Training/TrainingLoop.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Training/Validation.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Training/EarlyStopping.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Inference/SingleSample.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Inference/BatchInference.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Data/DataLoader.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Data/Preprocessing.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Data/Augmentation.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Persistence/ModelMetadata.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Persistence/MP4Storage.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: Persistence/GGUFConverter.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: WaveProtocols/WaveProtocol.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: WaveProtocols/SignalProcessing.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: WaveProtocols/AudioProtocols.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: WaveProtocols/EMFProtocols.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: WaveProtocols/RadioProtocols.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: WaveProtocols/TestRunner.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Aetheria: WaveProtocols/ProtocolLogger.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria ~/Desktop/code/Julia/sovwave/src/Aetheria.jl:78
+┌ Warning: Audio: Native/ccall_bindings.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria.Audio ~/Desktop/code/Julia/sovwave/src/Audio/Audio.jl:117
+┌ Warning: Audio: Output/AudioDevice.jl not implemented yet — excluded from stub build (expected until its section lands)
+└ @ Main.Aetheria.Audio ~/Desktop/code/Julia/sovwave/src/Audio/Audio.jl:117
+===========================================================================
+ 🌟 AETHERIA QUANTUM WAVE COMPUTATION ENGINE & AUDIO MODEL 🌟 
+===========================================================================
+
+🎵 [1/6] SACRED TUNING (432Hz) & GOLDEN HARMONICS
+---------------------------------------------------------------------------
+  Reference Sacred Pitch (A4):    432.00 Hz
+  Standard ISO Pitch (A4):        440.00 Hz
+  Sacred/Standard Tuning Ratio:   0.981818181818
+  Golden Ratio (PHI):             1.618033988749895
+  Fibonacci Sequence:             [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144]
+  MIDI C4 (Middle C in 432Hz):    256.8687 Hz
+  MIDI A4 (432Hz concert pitch):  432.0000 Hz
+  Golden Ratio Harmonics (f₀ · φⁿ):
+    Order 0 (432 · φ^0):             432.0000 Hz
+    Order 1 (432 · φ^1):             698.9907 Hz
+    Order 2 (432 · φ^2):             1130.9907 Hz
+    Order 3 (432 · φ^3):             1829.9814 Hz
+    Order 4 (432 · φ^4):             2960.9720 Hz
+  Fibonacci Ratio Harmonics:
+    Level 1 (F(2)/F(1)):            432.0000 Hz
+    Level 2 (F(3)/F(2)):            864.0000 Hz
+    Level 3 (F(4)/F(3)):            648.0000 Hz
+    Level 4 (F(5)/F(4)):            720.0000 Hz
+    Level 5 (F(6)/F(5)):            691.2000 Hz
+
+🌊 [2/6] CONTINUOUS WAVE ENGINE & 12 TRIGONOMETRIC KERNELS
+---------------------------------------------------------------------------
+  Evaluating 12 trigonometric wave kernels (1024 samples @ 48kHz):
+    sin    | Time: 7974.5 μs | Min:   -0.800 | Max:    0.800 | Phase: 1.3572 rad
+    cos    | Time:  104.2 μs | Min:   -0.800 | Max:    0.800 | Phase: 1.3572 rad
+    tan    | Time: 27887.2 μs | Min: -127.322 | Max: 1451665720284033.000 | Phase: 1.3572 rad
+    cot    | Time: 3263.7 μs | Min: -725832860142016.500 | Max:  127.322 | Phase: 1.3572 rad
+    sec    | Time: 2558.8 μs | Min: -233261312661474.562 | Max: 1451665720284033.000 | Phase: 1.3572 rad
+    csc    | Time: 3844.9 μs | Min: -362916430071008.250 | Max: 725832860142016.500 | Phase: 1.3572 rad
+    sinh   | Time: 10913.7 μs | Min:    0.000 | Max: 5317238871319425048379392.000 | Phase: 1.3572 rad
+    cosh   | Time: 6277.5 μs | Min:    0.800 | Max: 5317238871319425048379392.000 | Phase: 1.3572 rad
+    tanh   | Time: 5893.6 μs | Min:    0.000 | Max:    0.800 | Phase: 1.3572 rad
+    coth   | Time: 2604.9 μs | Min:    0.800 | Max:   14.162 | Phase: 1.3572 rad
+    sech   | Time: 2511.2 μs | Min:    0.000 | Max:    0.800 | Phase: 1.3572 rad
+    csch   | Time: 3270.0 μs | Min:    0.000 | Max:   14.140 | Phase: 1.3572 rad
+
+🧠 [3/6] BINAURAL BEATS ENGINE (Brainwave Entrainment)
+---------------------------------------------------------------------------
+    Preset delta   | Beat:  2.0 Hz | Left: 431.0 Hz | Right: 433.0 Hz | Calc: 12940.3 μs
+    Preset theta   | Beat:  6.0 Hz | Left: 429.0 Hz | Right: 435.0 Hz | Calc: 7055.5 μs
+    Preset alpha   | Beat: 10.0 Hz | Left: 427.0 Hz | Right: 437.0 Hz | Calc: 7888.4 μs
+    Preset beta    | Beat: 20.0 Hz | Left: 422.0 Hz | Right: 442.0 Hz | Calc: 7811.1 μs
+    Preset gamma   | Beat: 35.0 Hz | Left: 414.5 Hz | Right: 449.5 Hz | Calc: 7719.9 μs
+
+⚛️  [4/6] WAVE SUPERPOSITION & QUANTUM STATE COLLAPSE
+---------------------------------------------------------------------------
+  16-Wave Superposition: 1024 samples in 1306.80 μs (Norm factor: 0.4248)
+  Quantum Wave Collapse: Selected freq = 432.0 Hz (Collapse threshold = 0.7)
+
+📊 [5/6] WAVE COMPUTING ON DATA POINTS (Parameter Modulation)
+---------------------------------------------------------------------------
+  N = 64   points | Calc:    14.34 μs |  224.0 ns/pt |   4.46e+06 pts/sec | Inter: :multiply
+  N = 256  points | Calc:    24.95 μs |   97.5 ns/pt |   1.03e+07 pts/sec | Inter: :multiply
+  N = 1024 points | Calc:    87.63 μs |   85.6 ns/pt |   1.17e+07 pts/sec | Inter: :multiply
+  N = 4096 points | Calc:   334.47 μs |   81.7 ns/pt |   1.22e+07 pts/sec | Inter: :multiply
+
+  Testing Wave Interaction Operations on 1024 Points:
+    multiply      | Time:  74.25 μs | Mean Val:   0.0000 | Max:   0.0000 | Energy:   586.71
+    add           | Time:  68.86 μs | Mean Val:   0.0000 | Max:   0.4500 | Energy:   586.71
+    resonate      | Time:  68.82 μs | Mean Val:   0.0000 | Max:   0.0000 | Energy:   586.71
+    interference  | Time:  69.95 μs | Mean Val:   0.0000 | Max:   0.0000 | Energy:   586.71
+    energy        | Time:  68.30 μs | Mean Val:   0.2025 | Max:   0.4050 | Energy:   586.71
+    quantum       | Time:  97.37 μs | Mean Val:   0.0000 | Max:   0.0000 | Energy:   586.71
+
+🏆 [6/6] 64-ALGORITHM WAVE COMPUTATION TOURNAMENT
+---------------------------------------------------------------------------
+🌊 Aetheria Audio - Wave Computation Algorithm Competition 🌊
+================================================================
+Data points: 1024 | Freq: 432.0 | FD: 1.618
+
+--- Round 1: Direct Evaluation Methods ---
+Algorithm                Time (ns)   ns/pt     Pts/sec        Allocs  Score     Category
+naive_sequential          9379        9.2       1.09e+08       8320    43.0725   BLAZING ⚡
+vectorized_broadcast      18440       18.0      5.55e+07       8320    22.1160   BLAZING ⚡
+simd_manual               16665       16.3      6.14e+07       8320    24.4264   BLAZING ⚡
+unrolled_4x               23287       22.7      4.40e+07       8320    17.6010   BLAZING ⚡
+unrolled_8x               14798       14.5      6.92e+07       8320    27.4547   BLAZING ⚡
+fma_evaluation            16950       16.6      6.04e+07       8320    24.0229   BLAZING ⚡
+compensated_sum           12998       12.7      7.88e+07       8320    31.1980   BLAZING ⚡
+pairwise_sum              14667       14.3      6.98e+07       8320    27.6961   BLAZING ⚡
+👑 Round Winner: naive_sequential
+
+--- Round 2: Trigonometric Approximation Methods ---
+Algorithm                Time (ns)   ns/pt     Pts/sec        Allocs  Score     Category
+taylor_5th                19561       19.1      5.23e+07       8320    20.8671   BLAZING ⚡
+taylor_7th                17061       16.7      6.00e+07       8320    23.8636   BLAZING ⚡
+taylor_9th                15690       15.3      6.53e+07       8320    25.9122   BLAZING ⚡
+chebyshev_approx          15099       14.7      6.78e+07       8320    26.9159   BLAZING ⚡
+pade_approx               14173       13.8      7.23e+07       8320    28.6467   BLAZING ⚡
+cordic_fixed              17080       16.7      6.00e+07       8320    23.8432   BLAZING ⚡
+minimax_poly              15017       14.7      6.82e+07       8320    27.0605   BLAZING ⚡
+bhaskara_approx           16827       16.4      6.09e+07       8320    24.1896   BLAZING ⚡
+👑 Round Winner: pade_approx
+
+--- Round 3: Parallel/Batch Methods ---
+Algorithm                Time (ns)   ns/pt     Pts/sec        Allocs  Score     Category
+threaded_chunks           24452       23.9      4.19e+07       8960    16.7809   BLAZING ⚡
+spawn_tasks               14083       13.8      7.27e+07       8320    28.8271   BLAZING ⚡
+channel_pipeline          13862       13.5      7.39e+07       8320    29.2799   BLAZING ⚡
+atomic_accumulate         13994       13.7      7.32e+07       8320    29.0077   BLAZING ⚡
+reduction_tree            39398       38.5      2.60e+07       8320    10.5768   BLAZING ⚡
+map_reduce                13307       13.0      7.70e+07       8320    30.4834   BLAZING ⚡
+fold_sequential           17192       16.8      5.96e+07       8320    23.6907   BLAZING ⚡
+scan_prefix               14600       14.3      7.01e+07       8320    27.8213   BLAZING ⚡
+👑 Round Winner: map_reduce
+
+--- Round 4: FFT/Frequency Domain Methods ---
+Algorithm                Time (ns)   ns/pt     Pts/sec        Allocs  Score     Category
+direct_fft                19728       19.3      5.19e+07       8320    20.6998   BLAZING ⚡
+overlap_add               16028       15.7      6.39e+07       8320    25.3804   BLAZING ⚡
+overlap_save              14928       14.6      6.86e+07       8320    27.2193   BLAZING ⚡
+goertzel_single           15058       14.7      6.80e+07       8320    26.9880   BLAZING ⚡
+bluestein_chirp           14122       13.8      7.25e+07       8320    28.7486   BLAZING ⚡
+rader_prime               15060       14.7      6.80e+07       8320    26.9845   BLAZING ⚡
+winograd_small            15625       15.3      6.55e+07       8320    26.0240   BLAZING ⚡
+split_radix               15368       15.0      6.66e+07       8320    26.4521   BLAZING ⚡
+👑 Round Winner: bluestein_chirp
+
+--- Round 5: Interpolation Methods ---
+Algorithm                Time (ns)   ns/pt     Pts/sec        Allocs  Score     Category
+linear_interp             15257       14.9      6.71e+07       8320    26.6415   BLAZING ⚡
+cubic_interp              14334       14.0      7.14e+07       8320    28.3297   BLAZING ⚡
+hermite_interp            14187       13.9      7.22e+07       8320    28.6189   BLAZING ⚡
+lagrange_interp           16596       16.2      6.17e+07       8320    24.5262   BLAZING ⚡
+spline_natural            19366       18.9      5.29e+07       8320    21.0788   BLAZING ⚡
+barycentric_interp        52909       51.7      1.94e+07       8320    7.9842    BLAZING ⚡
+sinc_interp               14827       14.5      6.91e+07       8320    27.4018   BLAZING ⚡
+akima_interp              14888       14.5      6.88e+07       8320    27.2913   BLAZING ⚡
+👑 Round Winner: hermite_interp
+
+--- Round 6: Recursive/Fractal Methods ---
+Algorithm                Time (ns)   ns/pt     Pts/sec        Allocs  Score     Category
+golden_ratio_cascade      14637       14.3      7.00e+07       8320    27.7520   BLAZING ⚡
+fibonacci_unfold          15032       14.7      6.81e+07       8320    27.0339   BLAZING ⚡
+self_similar_decomp       15340       15.0      6.68e+07       8320    26.4997   BLAZING ⚡
+mandelbrot_escape         58198       56.8      1.76e+07       8320    7.2971    BLAZING ⚡
+julia_set_iteration       17405       17.0      5.88e+07       8320    23.4059   BLAZING ⚡
+sierpinski_subdivision    15006       14.7      6.82e+07       8320    27.0800   BLAZING ⚡
+cantor_set_removal        16503       16.1      6.20e+07       8320    24.6621   BLAZING ⚡
+koch_curve_refinement     15471       15.1      6.62e+07       8320    26.2789   BLAZING ⚡
+👑 Round Winner: golden_ratio_cascade
+
+--- Round 7: Quantum-Inspired Methods ---
+Algorithm                Time (ns)   ns/pt     Pts/sec        Allocs  Score     Category
+probability_collapse      16347       16.0      6.26e+07       8320    24.8934   BLAZING ⚡
+superposition_blend       13605       13.3      7.53e+07       8320    29.8250   BLAZING ⚡
+entangled_pairs           14796       14.4      6.92e+07       8320    27.4584   BLAZING ⚡
+quantum_walk              13981       13.7      7.32e+07       8320    29.0343   BLAZING ⚡
+grover_amplify            13871       13.5      7.38e+07       8320    29.2612   BLAZING ⚡
+phase_estimation          15601       15.2      6.56e+07       8320    26.0634   BLAZING ⚡
+variational_eigen         15084       14.7      6.79e+07       8320    26.9422   BLAZING ⚡
+tensor_network            15408       15.0      6.65e+07       8320    26.3846   BLAZING ⚡
+👑 Round Winner: superposition_blend
+
+--- Round 8: Sacred Geometry Methods ---
+Algorithm                Time (ns)   ns/pt     Pts/sec        Allocs  Score     Category
+phi_spiral_eval           15427       15.1      6.64e+07       8320    26.3526   BLAZING ⚡
+flower_of_life            15176       14.8      6.75e+07       8320    26.7814   BLAZING ⚡
+metatron_cube             15236       14.9      6.72e+07       8320    26.6776   BLAZING ⚡
+vesica_piscis             15051       14.7      6.80e+07       8320    27.0003   BLAZING ⚡
+seed_of_life              20826       20.3      4.92e+07       8320    19.6308   BLAZING ⚡
+fibonacci_vortex          29546       28.9      3.47e+07       8320    13.9623   BLAZING ⚡
+platonic_resonance        14801       14.5      6.92e+07       8320    27.4492   BLAZING ⚡
+sri_yantra_convergence    14493       14.2      7.07e+07       8320    28.0236   BLAZING ⚡
+👑 Round Winner: sri_yantra_convergence
+
+================================================================
+🏆 OVERALL CHAMPION: naive_sequential with score 43.0725 🏆
+================================================================
+
+===========================================================================
+ ✅ ALL WAVE COMPUTING MODEL COMPONENTS EXECUTED SUCCESSFULLY! 
+===========================================================================
