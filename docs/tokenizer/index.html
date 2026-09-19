@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Harmonic Wave Tokenizer — Sovwave Demo</title>
+  <link rel="stylesheet" href="../_shared/app.css" />
+  <style>
+    .tokenizer-container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    
+    .input-section {
+      margin-bottom: 2rem;
+    }
+    
+    .input-section textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 1rem;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 14px;
+      border: 2px solid #3498db;
+      border-radius: 8px;
+      background: #1a1a2e;
+      color: #eee;
+      resize: vertical;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    
+    .stat-label {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .stat-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #fff;
+    }
+    
+    .stat-unit {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.9);
+      margin-top: 0.25rem;
+    }
+    
+    .tokens-display {
+      background: #1a1a2e;
+      border: 2px solid #3498db;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      min-height: 150px;
+    }
+    
+    .token-item {
+      display: inline-block;
+      margin: 0.25rem;
+      padding: 0.5rem 0.75rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 6px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      color: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .token-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    
+    .token-item .token-text {
+      font-weight: bold;
+    }
+    
+    .token-item .token-info {
+      font-size: 10px;
+      color: rgba(255,255,255,0.7);
+      margin-top: 0.25rem;
+    }
+    
+    .multi-char-token {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .emoji-token {
+      background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+      font-size: 18px;
+    }
+    
+    .comparison-section {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+    
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    
+    .comparison-item {
+      background: rgba(255,255,255,0.08);
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .comparison-label {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 0.5rem;
+    }
+    
+    .comparison-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #3498db;
+    }
+    
+    .presets-section {
+      margin-bottom: 2rem;
+    }
+    
+    .preset-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    
+    .preset-btn {
+      padding: 0.5rem 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .preset-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    
+    .waveform-viz {
+      background: #1a1a2e;
+      border: 2px solid #3498db;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      height: 200px;
+      position: relative;
+    }
+    
+    canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+    }
+    
+    .legend {
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 1rem;
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+    
+    .legend-item {
+      margin-bottom: 0.5rem;
+    }
+    
+    .legend-color {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      margin-right: 0.5rem;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <header class="demo-header">
+    <h1>🌊 Harmonic Wave Tokenizer</h1>
+    <p>
+      Continuous waveform tokenization with frequency-based subword detection.
+      Text → acoustic wave packets → playable audio.
+    </p>
+  </header>
+
+  <div class="tokenizer-container">
+    <!-- Text Presets -->
+    <div class="presets-section">
+      <h3>📝 Test Samples</h3>
+      <div class="preset-buttons">
+        <button class="preset-btn" onclick="loadPreset('english')">English Prose</button>
+        <button class="preset-btn" onclick="loadPreset('code')">Python Code</button>
+        <button class="preset-btn" onclick="loadPreset('julia')">Julia Code</button>
+        <button class="preset-btn" onclick="loadPreset('math')">Math Symbols</button>
+        <button class="preset-btn" onclick="loadPreset('emoji')">Emoji Rich</button>
+        <button class="preset-btn" onclick="loadPreset('multilingual')">Multilingual</button>
+        <button class="preset-btn" onclick="loadPreset('cyrillic')">Cyrillic</button>
+        <button class="preset-btn" onclick="loadPreset('arabic')">Arabic</button>
+        <button class="preset-btn" onclick="loadPreset('cjk')">CJK</button>
+        <button class="preset-btn" onclick="loadPreset('mixed')">Mixed All</button>
+      </div>
+    </div>
+
+    <!-- Input Section -->
+    <div class="input-section">
+      <h3>✍️ Input Text</h3>
+      <textarea id="inputText" placeholder="Type or paste text here... Try: 'wave computing' or '🌊🧠⚡'" oninput="tokenizeText()">Wave computing replaces discrete tokens with continuous sound waveforms. 🌊🧠⚡</textarea>
+    </div>
+
+    <!-- Statistics -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Characters</div>
+        <div class="stat-value" id="charCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Tokens</div>
+        <div class="stat-value" id="tokenCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Compression</div>
+        <div class="stat-value" id="compressionRatio">0.00</div>
+        <div class="stat-unit">tokens/char</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Multi-Char Tokens</div>
+        <div class="stat-value" id="multiCharTokens">0</div>
+        <div class="stat-unit">subwords</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Latency</div>
+        <div class="stat-value" id="latency">0</div>
+        <div class="stat-unit">µs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Throughput</div>
+        <div class="stat-value" id="throughput">0</div>
+        <div class="stat-unit">tokens/sec</div>
+      </div>
+    </div>
+
+    <!-- Tokens Display -->
+    <div>
+      <h3>🎵 Tokenized Waveforms</h3>
+      <div class="tokens-display" id="tokensDisplay">
+        <em style="color: rgba(255,255,255,0.5);">Tokens will appear here...</em>
+      </div>
+    </div>
+
+    <!-- Waveform Visualization -->
+    <div>
+      <h3>📊 Frequency Spectrum Visualization</h3>
+      <div class="waveform-viz">
+        <canvas id="waveformCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Comparison Section -->
+    <div class="comparison-section">
+      <h3>⚖️ Tokenizer Comparison</h3>
+      <div class="comparison-grid">
+        <div class="comparison-item">
+          <div class="comparison-label">Character-Level (Baseline)</div>
+          <div class="comparison-value" id="charLevelTokens">-</div>
+          <div style="font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">
+            1.0 tokens/char (no compression)
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-label">GPT-2 BPE (Estimate)</div>
+          <div class="comparison-value" id="bpeTokens">-</div>
+          <div style="font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">
+            ~0.7 tokens/char (English-biased)
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-label">Sovwave Soliton_WavePacket</div>
+          <div class="comparison-value" id="sovwaveTokens">-</div>
+          <div style="font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">
+            ~0.73 tokens/char (tournament winner)
+          </div>
+        </div>
+        <div class="comparison-item">
+          <div class="comparison-label">Compression Gain</div>
+          <div class="comparison-value" id="compressionGain">-</div>
+          <div style="font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-top: 0.5rem;">
+            vs character-level baseline
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <h4>🎨 Token Color Legend</h4>
+      <div class="legend-item">
+        <span class="legend-color" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border: 2px solid rgba(255,255,255,0.3);"></span>
+        <strong>Pink:</strong> Multi-character tokens (2+ chars)
+        <br><small style="margin-left: 2rem; color: rgba(255,255,255,0.7);">🔥 = Learned from text frequency</small>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);"></span>
+        <strong>Yellow:</strong> Emoji tokens
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></span>
+        <strong>Blue/Purple:</strong> Single character tokens
+      </div>
+      <div class="legend-item" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+        Each token is a continuous sound wave with unique harmonic frequency (432 Hz - 8 kHz).
+        Hover over tokens to see frequency, phase, and waveform energy.
+      </div>
+    </div>
+  </div>
+
+  <footer class="demo-footer">
+    Sovwave Tokenizer · Frequency-adaptive BPE with continuous waveform synthesis
+  </footer>
+
+  <script src="../_shared/wave-utils.js"></script>
+  <script src="tokenizer.js"></script>
+</body>
+</html>
