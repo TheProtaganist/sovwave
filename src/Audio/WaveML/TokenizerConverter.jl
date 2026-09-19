@@ -19,6 +19,7 @@ using LinearAlgebra
 
 export convert_tokenizer, load_tokenizer_file, load_huggingface_tokenizer, convert_hf_tokenizer
 export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokenizer, llama_tokenizer
+export save_tokenizer, load_tokenizer, custom_tokenizer
 
 # ASCII byte constants for fast JSON scanning
 const _O_BRACE = 0x7b # {
@@ -342,3 +343,276 @@ Returns the converted LLaMA 3.2 pipeline tokenizer (128,256 tokens).
 """
 llama_tokenizer(; token=nothing, carrier_frequency=432.0, beta_s=1.618033988749895) =
     load_huggingface_tokenizer("llama"; token=token, carrier_frequency=carrier_frequency, beta_s=beta_s)
+
+"""
+    save_tokenizer(tok::WaveTokenizer, filepath::String)::String
+
+Saves a `WaveTokenizer` to a portable JSON file.
+Stores all tokens as their physical continuous wave frequencies in Hz.
+Enables instant loading in any project with `load_tokenizer(filepath)`.
+"""
+function save_tokenizer(tok::WaveTokenizer, filepath::String)::String
+    dir = dirname(filepath)
+    !isempty(dir) && mkpath(dir)
+    open(filepath, "w") do io
+        println(io, "{")
+        println(io, "  \"version\": \"1.0\",")
+        @printf(io, "  \"carrier_frequency\": %.6f,\n", tok.carrier_frequency)
+        @printf(io, "  \"beta_s\": %.15f,\n", tok.beta_s)
+        println(io, "  \"tokens\": {")
+        sorted_pairs = sort(collect(tok.vocab), by = x -> x.second)
+        for (i, (token, id)) in enumerate(sorted_pairs)
+            escaped_tok = escape_string(token)
+            comma = i < length(sorted_pairs) ? "," : ""
+            freq = tok.frequencies[id]
+            println(io, "    \"", escaped_tok, "\": ", freq, comma)
+        end
+        println(io, "  },")
+        println(io, "  \"token_frequencies\": {")
+        for (i, (token, id)) in enumerate(sorted_pairs)
+            escaped_tok = escape_string(token)
+            comma = i < length(sorted_pairs) ? "," : ""
+            freq = tok.frequencies[id]
+            println(io, "    \"", escaped_tok, "\": ", freq, comma)
+        end
+        println(io, "  },")
+        println(io, "  \"vocab\": {")
+        for (i, (token, id)) in enumerate(sorted_pairs)
+            escaped_tok = escape_string(token)
+            comma = i < length(sorted_pairs) ? "," : ""
+            println(io, "    \"", escaped_tok, "\": ", id, comma)
+        end
+        println(io, "  }")
+        println(io, "}")
+    end
+    return filepath
+end
+
+"""
+    parse_token_frequencies_bytes(raw_bytes::Vector{UInt8})::Dict{String, Float64}
+
+Fast streaming byte parser for continuous wave token frequencies from JSON.
+"""
+function parse_token_frequencies_bytes(raw_bytes::Vector{UInt8})::Dict{String, Float64}
+    freqs = Dict{String, Float64}()
+    target = b"\"token_frequencies\":"
+    v_range = findfirst(target, raw_bytes)
+    if v_range === nothing
+        target = b"\"tokens\":"
+        v_range = findfirst(target, raw_bytes)
+    end
+    v_range === nothing && return freqs
+
+    pos = last(v_range) + 1
+    N = length(raw_bytes)
+    while pos <= N && raw_bytes[pos] != _O_BRACE
+        pos += 1
+    end
+    pos += 1
+
+    buf = UInt8[]
+    while pos <= N
+        while pos <= N && raw_bytes[pos] != _QUOTE && raw_bytes[pos] != _C_BRACE
+            pos += 1
+        end
+        (pos > N || raw_bytes[pos] == _C_BRACE) && break
+        pos += 1
+
+        empty!(buf)
+        escaped = false
+        while pos <= N
+            b = raw_bytes[pos]
+            if escaped
+                push!(buf, b)
+                escaped = false
+            elseif b == _ESCAPE
+                escaped = true
+                push!(buf, b)
+            elseif b == _QUOTE
+                break
+            else
+                push!(buf, b)
+            end
+            pos += 1
+        end
+        pos += 1
+
+        raw_str = String(copy(buf))
+        key = try unescape_string(raw_str) catch; raw_str end
+
+        while pos <= N && raw_bytes[pos] != _COLON && raw_bytes[pos] != _C_BRACE
+            pos += 1
+        end
+        (pos > N || raw_bytes[pos] == _C_BRACE) && break
+        pos += 1
+
+        while pos <= N && (raw_bytes[pos] == 0x20 || raw_bytes[pos] == 0x09 || raw_bytes[pos] == 0x0a || raw_bytes[pos] == 0x0d)
+            pos += 1
+        end
+
+        v_start = pos
+        while pos <= N && (
+            (raw_bytes[pos] >= 0x30 && raw_bytes[pos] <= 0x39) ||
+            raw_bytes[pos] == 0x2e || raw_bytes[pos] == 0x2d || raw_bytes[pos] == 0x2b ||
+            raw_bytes[pos] == 0x65 || raw_bytes[pos] == 0x45
+        )
+            pos += 1
+        end
+
+        val_str = String(raw_bytes[v_start:(pos - 1)])
+        val = try parse(Float64, val_str) catch; 0.0 end
+        freqs[key] = val
+    end
+    return freqs
+end
+
+"""
+    convert_frequencies_tokenizer(freq_dict::Dict{String, Float64}; carrier_frequency=432.0, beta_s=1.618033988749895)::WaveTokenizer
+
+Constructs a `WaveTokenizer` where each token is directly defined by its physical wave frequency in Hz.
+"""
+function convert_frequencies_tokenizer(
+    freq_dict::Dict{String, Float64};
+    carrier_frequency::Float64 = 432.0,
+    beta_s::Float64 = 1.618033988749895
+)::WaveTokenizer
+    isempty(freq_dict) && error("Cannot convert empty frequency dictionary")
+    specials = ["<PAD>", "<UNK>", "<BOS>", "<EOS>", "<SEP>", "<MASK>"]
+
+    v1 = Dict{String, Int}()
+    inv_v = String[]
+    freqs = Float64[]
+    id = 1
+    for s in specials
+        v1[s] = id
+        push!(inv_v, s)
+        f = get(freq_dict, s, token_wave_frequency(s; carrier_frequency=carrier_frequency, beta_s=beta_s))
+        push!(freqs, f)
+        id += 1
+    end
+
+    for (tok, f) in freq_dict
+        if !haskey(v1, tok)
+            v1[tok] = id
+            push!(inv_v, tok)
+            push!(freqs, f)
+            id += 1
+        end
+    end
+
+    return WaveTokenizer(v1, inv_v; carrier_frequency=carrier_frequency, beta_s=beta_s, frequencies=freqs)
+end
+
+"""
+    load_tokenizer(filepath::String; carrier_frequency::Float64 = 432.0, beta_s::Float64 = 1.618033988749895)::WaveTokenizer
+
+Universal tokenizer loader. Automatically detects and parses:
+1. Sovwave custom tokenizer JSON with wave frequencies (`{"tokens": {"word": 432.0, ...}}`)
+2. Hugging Face `tokenizer.json` / `vocab.json`
+3. SentencePiece `.vocab` file (tab/space-separated tokens)
+4. Plaintext `.txt` wordlist (one token per line)
+"""
+function load_tokenizer(filepath::String; carrier_frequency::Float64 = 432.0, beta_s::Float64 = 1.618033988749895)::WaveTokenizer
+    isfile(filepath) || error("Tokenizer file not found: $filepath")
+
+    # Read up to 2KB to inspect header format
+    header = String(read(filepath, min(filesize(filepath), 2048)))
+
+    if startswith(strip(header), "{") || occursin("\"vocab\":", header) || occursin("\"tokens\":", header)
+        # Check custom carrier frequency and beta_s
+        cf_match = match(r"\"carrier_frequency\"\s*:\s*([0-9.]+)", header)
+        if cf_match !== nothing
+            carrier_frequency = parse(Float64, cf_match.captures[1])
+        end
+        bs_match = match(r"\"beta_s\"\s*:\s*([0-9.]+)", header)
+        if bs_match !== nothing
+            beta_s = parse(Float64, bs_match.captures[1])
+        end
+
+        raw_bytes = read(filepath)
+
+        # Check if wave frequencies are stored directly
+        freq_dict = parse_token_frequencies_bytes(raw_bytes)
+        if !isempty(freq_dict)
+            return convert_frequencies_tokenizer(freq_dict; carrier_frequency=carrier_frequency, beta_s=beta_s)
+        end
+
+        # Fallback to standard vocab index JSON
+        vocab = parse_vocab_bytes(raw_bytes)
+        return convert_tokenizer(vocab; carrier_frequency=carrier_frequency, beta_s=beta_s)
+    else
+        # Plaintext wordlist or SentencePiece .vocab
+        vocab = Dict{String, Int}()
+        id = 1
+        for sp in ["<PAD>", "<UNK>", "<BOS>", "<EOS>", "<SEP>", "<MASK>"]
+            vocab[sp] = id
+            id += 1
+        end
+
+        for line in eachline(filepath)
+            s = strip(line)
+            isempty(s) && continue
+            parts = split(s, ('\t', ' '))
+            tok = String(parts[1])
+            if !haskey(vocab, tok)
+                vocab[tok] = id
+                id += 1
+            end
+        end
+
+        return convert_tokenizer(vocab; carrier_frequency=carrier_frequency, beta_s=beta_s)
+    end
+end
+
+"""
+    custom_tokenizer(source; carrier_frequency=432.0, beta_s=1.618033988749895)::WaveTokenizer
+
+Instantiates a custom `WaveTokenizer` directly for any project.
+Tokens are continuous harmonic wave frequencies (in Hz).
+
+Accepts:
+- `source::AbstractString`: Path to an existing file (`.json`, `.vocab`, `.txt`), or a text corpus string.
+- `source::Vector{<:AbstractString}`: List of custom words/subwords/tokens.
+- `source::Dict{<:AbstractString, <:Real}`: Token-to-WaveFrequency mapping (Hz).
+- `source::Dict{<:AbstractString, <:Integer}`: Token-to-index mapping.
+"""
+function custom_tokenizer(
+    source::Union{AbstractString, Vector{<:AbstractString}, Dict};
+    carrier_frequency::Float64 = 432.0,
+    beta_s::Float64 = 1.618033988749895
+)::WaveTokenizer
+    if source isa AbstractString
+        if isfile(source)
+            return load_tokenizer(source; carrier_frequency=carrier_frequency, beta_s=beta_s)
+        else
+            # Raw text corpus: extract unique words
+            words = unique(String.(split(source)))
+            return custom_tokenizer(words; carrier_frequency=carrier_frequency, beta_s=beta_s)
+        end
+    elseif source isa Dict
+        # Check if values are wave frequencies (floating point)
+        first_val = first(values(source))
+        if first_val isa AbstractFloat
+            freq_dict = Dict{String, Float64}(string(k) => Float64(v) for (k, v) in source)
+            return convert_frequencies_tokenizer(freq_dict; carrier_frequency=carrier_frequency, beta_s=beta_s)
+        else
+            dict_str = Dict{String, Int}(string(k) => Int(v) for (k, v) in source)
+            return convert_tokenizer(dict_str; carrier_frequency=carrier_frequency, beta_s=beta_s)
+        end
+    elseif source isa Vector
+        vocab = Dict{String, Int}()
+        id = 1
+        for sp in ["<PAD>", "<UNK>", "<BOS>", "<EOS>", "<SEP>", "<MASK>"]
+            vocab[sp] = id
+            id += 1
+        end
+        for tok in source
+            tok_str = string(tok)
+            if !haskey(vocab, tok_str)
+                vocab[tok_str] = id
+                id += 1
+            end
+        end
+        return convert_tokenizer(vocab; carrier_frequency=carrier_frequency, beta_s=beta_s)
+    end
+end

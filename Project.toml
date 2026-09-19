@@ -1,7 +1,7 @@
 name = "Sovwave"
 uuid = "e796aabd-7f07-43f4-9cac-ebbf89ffa53a"
 authors = ["sovwave <intender@local>"]
-version = "0.3.1"
+version = "0.3.2"
 repo = "https://github.com/TheProtaganist/sovwave.git"
 
 [deps]

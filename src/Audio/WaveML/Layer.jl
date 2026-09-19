@@ -89,16 +89,10 @@ function create_layer(
     clamp!(amps, 0.01, 2.0)
 
     # Initial phases evenly distributed to preserve initial coherence
-    phs = Matrix{Float64}(undef, nodes, embed_dim)
-    for i in 1:nodes, j in 1:embed_dim
-        phs[i, j] = mod(2π * ((i - 1) / nodes + (j - 1) / embed_dim), 2π)
-    end
+    phs = [mod(2π * ((i - 1) / nodes + (j - 1) / embed_dim), 2π) for i in 1:nodes, j in 1:embed_dim]
 
     # Relative frequencies centered at 1.0 (fundamental) with harmonic overtones
-    freqs = Matrix{Float64}(undef, nodes, embed_dim)
-    for i in 1:nodes, j in 1:embed_dim
-        freqs[i, j] = 1.0 + 0.1 * ((j % 4) + 1)
-    end
+    freqs = [1.0 + 0.1 * ((j % 4) + 1) for i in 1:nodes, j in 1:embed_dim]
 
     # Fractal scales initialized around Golden Ratio β_s
     fractals = [beta_s * (1.0 + 0.05 * sin(2π * i / nodes)) for i in 1:nodes]
@@ -118,53 +112,39 @@ function create_layer(
 end
 
 """
-    forward!(layer::WaveLayer, input_values::Vector{Float64}, t::Float64)::Vector{Float64}
+    forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, output::Vector{Float64}, t::Float64)::Vector{Float64}
 
-Propagates incoming wave information through the layer's quantum nodes.
+High-performance zero-allocation in-place forward wave pass across quantum nodes.
 Computes wave superposition across embeddings and nodes:
 
     ψᵢ = β_{s,i} · D_{f,i} · Σⱼ Aᵢⱼ · sin(ω·fᵢⱼ·(xⱼ/vᵢ) + φᵢⱼ − t)
-
-where:
-- `β_{s,i}` is the per-node fractal scale
-- `D_{f,i}` is the per-node Hausdorff fractal dimension (modulates the envelope)
-- `vᵢ` is the per-node wave speed (`-1.0` bypasses the divisor for unlimited speed)
 """
-function forward!(layer::WaveLayer, input_values::Vector{Float64}, t::Float64)::Vector{Float64}
+function forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, output::AbstractVector{Float64}, t::Float64)::AbstractVector{Float64}
     n = layer.nodes
     d = layer.embed_dim
-    output = Vector{Float64}(undef, n)
     in_len = length(input_values)
+    inv_sqrt_d = 1.0 / sqrt(Float64(d))
+    omega_scaled = layer.omega * 0.001
 
     total_layer_energy = 0.0
 
     @inbounds for i in 1:n
         node_sum = 0.0
-        beta       = layer.fractal_scales[i]
-        d_f        = layer.fractal_dims[i]    # Hausdorff fractal dimension
-        v_spd      = layer.wave_speeds[i]     # wave speed (-1.0 = unlimited)
+        beta      = layer.fractal_scales[i]
+        d_f       = layer.fractal_dims[i]    # Hausdorff fractal dimension
+        v_spd     = layer.wave_speeds[i]     # wave speed (-1.0 = unlimited)
+        frac_env  = d_f / 1.5                # normalized envelope
+        has_speed = v_spd != -1.0
+        inv_v     = has_speed ? 1.0 / max(v_spd, 1e-12) : 1.0
 
-        # Fractal dimension envelope factor: D_f modulates output amplitude
-        # D_f=1 → linear, D_f=2 → planar, D_f∈(1,3) → fractal
-        frac_env = d_f / 1.5  # normalized so default D_f=1.5 → envelope=1.0
-
-        for j in 1:d
+        @simd for j in 1:d
             in_val = j <= in_len ? input_values[j] : 0.5
-            amp  = layer.amplitudes[i, j]
-            ph   = layer.phases[i, j]
-            freq = layer.frequencies[i, j]
-
-            # Speed-aware wave phase modulation:
-            # v == -1.0 (unlimited): angle = ω·f·x + φ - t   (no delay)
-            # v > 0    (finite):     angle = ω·f·(x/v) + φ - t
-            x_eff = v_spd == -1.0 ? in_val : in_val / max(v_spd, 1e-12)
-            angle = muladd(layer.omega * 0.001 * freq, x_eff, ph - t)
-            wave_val = amp * sin(angle)
-            node_sum += wave_val
+            x_eff  = has_speed ? in_val * inv_v : in_val
+            angle  = muladd(omega_scaled * layer.frequencies[i, j], x_eff, layer.phases[i, j] - t)
+            node_sum += layer.amplitudes[i, j] * sin(angle)
         end
 
-        # Modulate by fractal geometry: β_s + fractal dimension envelope
-        node_wave = (node_sum / sqrt(Float64(d))) * beta * frac_env
+        node_wave = (node_sum * inv_sqrt_d) * beta * frac_env
         output[i] = node_wave
         total_layer_energy += 0.5 * (node_wave * node_wave)
     end
@@ -172,6 +152,14 @@ function forward!(layer::WaveLayer, input_values::Vector{Float64}, t::Float64)::
     layer.layer_energy = total_layer_energy
     return output
 end
+
+"""
+    forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, t::Float64)::Vector{Float64}
+
+Convenience allocating wrapper for `forward!`.
+"""
+forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, t::Float64) =
+    forward!(layer, input_values, Vector{Float64}(undef, layer.nodes), t)
 
 """
     layer_energy(layer::WaveLayer)::Float64
@@ -185,7 +173,7 @@ end
 """
     mutate!(layer::WaveLayer, rate::Float64)::Nothing
 
-Applies evolutionary mutations to the wave parameters of this layer:
+Applies evolutionary mutations to the wave parameters of this layer in-place with zero heap allocation:
 - Amplitudes: Perturbed with rate-scaled fluctuations
 - Phases: Modulated continuously on [0, 2π]
 - Frequencies: Drift according to harmonic scaling
@@ -197,32 +185,19 @@ function mutate!(layer::WaveLayer, rate::Float64)::Nothing
     nodes = layer.nodes
     embed_dim = layer.embed_dim
 
-    # Correlated amplitude perturbation
-    for i in 1:nodes, j in 1:embed_dim
-        layer.amplitudes[i, j] += rate * 0.2 * randn()
-        layer.amplitudes[i, j] = clamp(layer.amplitudes[i, j], 0.001, 3.0)
-
-        # Phase mutation (periodic on circle)
+    # In-place column-major iteration for cache locality
+    @inbounds for j in 1:embed_dim, i in 1:nodes
+        layer.amplitudes[i, j] = clamp(layer.amplitudes[i, j] + rate * 0.2 * randn(), 0.001, 3.0)
         layer.phases[i, j] = mod(layer.phases[i, j] + rate * 0.5 * (rand() - 0.5) * 2π, 2π)
-
-        # Frequency drift
         layer.frequencies[i, j] = clamp(layer.frequencies[i, j] + rate * 0.05 * randn(), 0.1, 10.0)
     end
 
-    # Fractal scale tuning
-    for i in 1:nodes
-        layer.fractal_scales[i] += rate * 0.02 * randn()
-        layer.fractal_scales[i] = clamp(layer.fractal_scales[i], 0.5, 4.0)
-
-        # Fractal dimension drift ∈ [1.0, 3.0]
-        layer.fractal_dims[i] += rate * 0.01 * randn()
-        layer.fractal_dims[i] = clamp(layer.fractal_dims[i], 1.0, 3.0)
-
-        # Wave speed drift ∈ [0.1, 10.0]
-        # Nodes with unlimited speed (-1.0) are never mutated out of sentinel
+    # In-place fractal scale, dimension, and speed tuning
+    @inbounds for i in 1:nodes
+        layer.fractal_scales[i] = clamp(layer.fractal_scales[i] + rate * 0.02 * randn(), 0.5, 4.0)
+        layer.fractal_dims[i]   = clamp(layer.fractal_dims[i] + rate * 0.01 * randn(), 1.0, 3.0)
         if layer.wave_speeds[i] != -1.0
-            layer.wave_speeds[i] += rate * 0.05 * randn()
-            layer.wave_speeds[i] = clamp(layer.wave_speeds[i], 0.1, 10.0)
+            layer.wave_speeds[i] = clamp(layer.wave_speeds[i] + rate * 0.05 * randn(), 0.1, 10.0)
         end
     end
 
@@ -232,10 +207,8 @@ end
 """
     crossover(parent_a::WaveLayer, parent_b::WaveLayer)::WaveLayer
 
-Combines two wave layers using the tournament champion **Arithmetic Wave Blend**:
-Parameters are superposed in phase space with equal energy weighting.
-`fractal_dims` and `wave_speeds` are arithmetically blended (unlimited nodes
-retain -1.0 if both parents are unlimited; otherwise blended normally).
+Combines two wave layers using the tournament champion **Arithmetic Wave Blend**
+optimized via type-stable list comprehensions.
 """
 function crossover(parent_a::WaveLayer, parent_b::WaveLayer)::WaveLayer
     nodes = parent_a.nodes
@@ -244,14 +217,8 @@ function crossover(parent_a::WaveLayer, parent_b::WaveLayer)::WaveLayer
     # Arithmetic blend for amplitudes
     child_amps = 0.5 .* (parent_a.amplitudes .+ parent_b.amplitudes)
 
-    # Circular phase interpolation
-    child_phases = Matrix{Float64}(undef, nodes, embed_dim)
-    for i in 1:nodes, j in 1:embed_dim
-        th_a = parent_a.phases[i, j]
-        th_b = parent_b.phases[i, j]
-        # Circular mean: atan(sin(a)+sin(b), cos(a)+cos(b))
-        child_phases[i, j] = mod(atan(sin(th_a) + sin(th_b), cos(th_a) + cos(th_b)), 2π)
-    end
+    # Circular phase interpolation comprehension
+    child_phases = [mod(atan(sin(parent_a.phases[i, j]) + sin(parent_b.phases[i, j]), cos(parent_a.phases[i, j]) + cos(parent_b.phases[i, j])), 2π) for i in 1:nodes, j in 1:embed_dim]
 
     # Geometric mean for frequencies
     child_freqs = sqrt.(parent_a.frequencies .* parent_b.frequencies)
@@ -262,21 +229,12 @@ function crossover(parent_a::WaveLayer, parent_b::WaveLayer)::WaveLayer
     # Blend fractal dims ∈ [1.0, 3.0]
     child_fdims = clamp.(0.5 .* (parent_a.fractal_dims .+ parent_b.fractal_dims), 1.0, 3.0)
 
-    # Blend wave speeds — if both parents are unlimited, child is unlimited
-    child_wspeeds = Vector{Float64}(undef, nodes)
-    for i in 1:nodes
+    # Blend wave speeds comprehension — if both parents are unlimited, child is unlimited
+    child_wspeeds = [begin
         va = parent_a.wave_speeds[i]
         vb = parent_b.wave_speeds[i]
-        if va == -1.0 && vb == -1.0
-            child_wspeeds[i] = -1.0
-        elseif va == -1.0
-            child_wspeeds[i] = vb
-        elseif vb == -1.0
-            child_wspeeds[i] = va
-        else
-            child_wspeeds[i] = clamp(0.5 * (va + vb), 0.1, 10.0)
-        end
-    end
+        (va == -1.0 && vb == -1.0) ? -1.0 : (va == -1.0 ? vb : (vb == -1.0 ? va : clamp(0.5 * (va + vb), 0.1, 10.0)))
+    end for i in 1:nodes]
 
     return WaveLayer(nodes, embed_dim, child_amps, child_phases, child_freqs, child_fractals, parent_a.omega;
                      fractal_dims=child_fdims, wave_speeds=child_wspeeds)

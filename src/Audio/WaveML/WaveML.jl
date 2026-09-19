@@ -77,6 +77,7 @@ export to_wave_packet, encode_sequence, decode_embedding, decode_sequence_embedd
 export unicode_wave_frequency, unicode_wave_phase, token_wave_frequency, token_wave_phase, register_token!
 export convert_tokenizer, load_tokenizer_file, load_huggingface_tokenizer, convert_hf_tokenizer
 export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokenizer, llama_tokenizer
+export save_tokenizer, load_tokenizer, custom_tokenizer
 
 # Public exports: Dataset
 export WaveDataset, WaveDataLoader
@@ -111,5 +112,7 @@ export sonify_model, sonify_step, save_wav, play_realtime!
 
 # Public exports: CUDA (optional GPU acceleration)
 export enable_cuda!, disable_cuda!, cuda_available, to_gpu, to_cpu
+export WaveHybridDispatcher, hybrid_dispatcher, benchmark_system_vs_cuda
+export hybrid_forward!, hybrid_forward_batch, hybrid_project_vocab, hybrid_evaluate!
 
 end # module WaveML

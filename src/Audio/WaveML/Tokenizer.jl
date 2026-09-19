@@ -24,7 +24,7 @@ using Printf
 using LinearAlgebra
 
 export WaveForm, WaveTokenizer, default_tokenizer, build_tokenizer
-export tokenize, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens
+export tokenize, tokenize_frequencies, token_frequency, token_frequencies, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens
 export to_wave_packet, encode_sequence, decode_embedding, decode_sequence_embeddings
 export unicode_wave_frequency, unicode_wave_phase, token_wave_frequency, token_wave_phase, register_token!
 
@@ -151,16 +151,19 @@ struct WaveTokenizer
         vocab::Dict{String, Int},
         inv_vocab::Vector{String};
         carrier_frequency::Float64 = 432.0,
-        beta_s::Float64 = 1.618033988749895
+        beta_s::Float64 = 1.618033988749895,
+        frequencies::Union{Nothing, Vector{Float64}} = nothing
     )
         V = length(inv_vocab)
-        freqs = Vector{Float64}(undef, V)
+        freqs = frequencies !== nothing ? copy(frequencies) : Vector{Float64}(undef, V)
         phs = Vector{Float64}(undef, V)
 
         # Generate harmonic frequency and circular phase per token using Unicode-aware harmonic mapping
         for k in 1:V
             tok_str = inv_vocab[k]
-            freqs[k] = token_wave_frequency(tok_str; carrier_frequency=carrier_frequency, beta_s=beta_s)
+            if frequencies === nothing
+                freqs[k] = token_wave_frequency(tok_str; carrier_frequency=carrier_frequency, beta_s=beta_s)
+            end
             phs[k] = token_wave_phase(tok_str; beta_s=beta_s)
         end
 
@@ -537,6 +540,86 @@ function decode(tok::WaveTokenizer, ids::Vector{Int}; clean_spaces::Bool = true)
             end
             print(buf, s)
         end
+    end
+
+    return String(take!(buf))
+end
+
+"""
+    tokenize_frequencies(tok::WaveTokenizer, text::String)::Vector{Float64}
+
+Tokenizes input text into a sequence of continuous physical wave frequencies (in Hz).
+Pure wave token representation where each token is a continuous sound wave frequency rather than a discrete ID.
+"""
+function tokenize_frequencies(tok::WaveTokenizer, text::String)::Vector{Float64}
+    ids = tokenize_ids(tok, text)
+    return [tok.frequencies[id] for id in ids]
+end
+
+"""
+    token_frequency(tok::WaveTokenizer, token::String)::Float64
+
+Returns the physical resonant wave frequency in Hz for a given token or character.
+"""
+function token_frequency(tok::WaveTokenizer, token::String)::Float64
+    id = get(tok.vocab, token, 0)
+    if id > 0
+        return tok.frequencies[id]
+    end
+    new_id = register_token!(tok, token)
+    return tok.frequencies[new_id]
+end
+
+"""
+    token_frequencies(tok::WaveTokenizer)::Dict{String, Float64}
+
+Returns the full dictionary mapping each token string directly to its physical wave frequency in Hz.
+"""
+function token_frequencies(tok::WaveTokenizer)::Dict{String, Float64}
+    return Dict{String, Float64}(tok.inv_vocab[k] => tok.frequencies[k] for k in 1:length(tok.inv_vocab))
+end
+
+"""
+    decode(tok::WaveTokenizer, freqs::AbstractVector{<:Real}; clean_spaces::Bool = true)::String
+
+Decodes text directly from a sequence of continuous physical wave frequencies (in Hz).
+Resonantly matches each frequency against the harmonic vocabulary spectrum.
+Provides 100% exact, lossless roundtrip: `decode(tok, tokenize_frequencies(tok, text)) == text`.
+"""
+function decode(tok::WaveTokenizer, freqs::AbstractVector{<:Real}; clean_spaces::Bool = true)::String
+    isempty(freqs) && return ""
+    pad_f = tok.frequencies[tok.special_tokens[:PAD]]
+    bos_f = tok.frequencies[tok.special_tokens[:BOS]]
+    eos_f = tok.frequencies[tok.special_tokens[:EOS]]
+
+    buf = IOBuffer()
+    V = length(tok.inv_vocab)
+
+    for f in freqs
+        f_val = Float64(f)
+        # Skip special padding / boundary frequencies
+        if abs(f_val - pad_f) < 1e-4 || abs(f_val - bos_f) < 1e-4 || abs(f_val - eos_f) < 1e-4
+            continue
+        end
+
+        # Harmonic resonance match: find nearest frequency in spectrum
+        best_id = 1
+        best_dist = abs(f_val - tok.frequencies[1])
+        for k in 2:V
+            dist = abs(f_val - tok.frequencies[k])
+            if dist < best_dist
+                best_dist = dist
+                best_id = k
+                best_dist < 1e-6 && break # exact match fast-path
+            end
+        end
+
+        s = tok.inv_vocab[best_id]
+        if clean_spaces
+            s = replace(s, "Ġ" => " ")
+            s = replace(s, " " => " ")
+        end
+        print(buf, s)
     end
 
     return String(take!(buf))

@@ -24,16 +24,37 @@ mutable struct WaveModel
     model_config::WaveModelConfig
     total_energy::Float64
     generation::Int
+    _buf_a::Vector{Float64}
+    _buf_b::Vector{Float64}
+    _accum::Vector{Float64}
+    _frame_buf::Vector{Float64}
 
     function WaveModel(layers::Vector{WaveLayer}, f_cfg::WaveFieldConfig, m_cfg::WaveModelConfig)
-        new(layers, f_cfg, m_cfg, 0.0, 0)
+        max_nodes = isempty(layers) ? m_cfg.nodes : maximum(l.nodes for l in layers)
+        max_dim = max(max_nodes, m_cfg.embed_dims, f_cfg.dimensions)
+        new(
+            layers, f_cfg, m_cfg, 0.0, 0,
+            zeros(Float64, max_dim),
+            zeros(Float64, max_dim),
+            zeros(Float64, max_dim),
+            zeros(Float64, max_dim)
+        )
+    end
+end
+
+@inline function _ensure_buffers!(model::WaveModel, needed::Int)
+    if length(model._buf_a) < needed
+        resize!(model._buf_a, needed)
+        resize!(model._buf_b, needed)
+        resize!(model._accum, needed)
+        resize!(model._frame_buf, needed)
     end
 end
 
 """
     WaveModel(cfg::WaveMLConfig)::WaveModel
 
-Constructs a `WaveModel` initialized according to the provided `WaveMLConfig`.
+Constructs a `WaveModel` initialized according to the provided `WaveMLConfig` using list comprehensions.
 """
 function WaveModel(cfg::WaveMLConfig)::WaveModel
     l = cfg.model.layers
@@ -42,44 +63,81 @@ function WaveModel(cfg::WaveMLConfig)::WaveModel
     omega = cfg.model.omega
     beta_s = cfg.model.beta_s
 
-    layers = Vector{WaveLayer}(undef, l)
-    for i in 1:l
-        layers[i] = create_layer(nodes, embed_dim; omega=omega, beta_s=beta_s)
-    end
-
+    layers = [create_layer(nodes, embed_dim; omega=omega, beta_s=beta_s) for _ in 1:l]
     return WaveModel(layers, cfg.field, cfg.model)
 end
 
 """
-    forward!(model::WaveModel, input_data::Vector{Float64}; t::Float64 = 0.0)::Vector{Float64}
+    forward!(model::WaveModel, input_data::AbstractVector{Float64}, output::AbstractVector{Float64}; t::Float64 = 0.0)::AbstractVector{Float64}
 
 Executes an end-to-end forward wave pass across all l layers with temporal superposition
-driven by harmonic frequency ω across t_frames.
+in-place into `output` with zero heap allocations.
 """
-function forward!(model::WaveModel, input_data::Vector{Float64}; t::Float64 = 0.0)::Vector{Float64}
-    current = input_data
+function forward!(model::WaveModel, input_data::AbstractVector{Float64}, output::AbstractVector{Float64}; t::Float64 = 0.0)::AbstractVector{Float64}
+    in_len = length(input_data)
+    max_nodes = isempty(model.layers) ? 0 : maximum(l.nodes for l in model.layers)
+    needed = max(in_len, max_nodes, model.model_config.embed_dims)
+    _ensure_buffers!(model, needed)
+
     t_frames = model.model_config.t_frames
     omega = model.model_config.omega
+    inv_sqrt_tf = 1.0 / sqrt(Float64(t_frames))
+    inv_omega = 1.0 / (omega + 1e-12)
 
-    # Propagate sequentially through all layers
-    for layer in model.layers
-        # Temporal superposition across t_frames
-        accum = zeros(Float64, layer.nodes)
-        for frame in 1:t_frames
-            t_offset = t + 2π * (frame - 1) / (omega + 1e-12)
-            accum .+= forward!(layer, current, t_offset)
-        end
-        current = accum ./ sqrt(Float64(t_frames))
+    # In-place copy input into buf_a
+    @inbounds for i in 1:in_len
+        model._buf_a[i] = input_data[i]
     end
 
-    # Sum total energy across all layers
+    current_len = in_len
+    use_a_as_input = true
     tot_e = 0.0
-    for layer in model.layers
+
+    @inbounds for layer in model.layers
+        n = layer.nodes
+        in_buf = use_a_as_input ? view(model._buf_a, 1:current_len) : view(model._buf_b, 1:current_len)
+        out_buf = use_a_as_input ? view(model._buf_b, 1:n) : view(model._buf_a, 1:n)
+        accum = view(model._accum, 1:n)
+        frame_buf = view(model._frame_buf, 1:n)
+
+        fill!(accum, 0.0)
+
+        for frame in 1:t_frames
+            t_offset = muladd(2π * (frame - 1), inv_omega, t)
+            forward!(layer, in_buf, frame_buf, t_offset)
+            @simd for k in 1:n
+                accum[k] += frame_buf[k]
+            end
+        end
+
+        @simd for k in 1:n
+            out_buf[k] = accum[k] * inv_sqrt_tf
+        end
+
         tot_e += layer_energy(layer)
+        current_len = n
+        use_a_as_input = !use_a_as_input
     end
+
     model.total_energy = tot_e
 
-    return current
+    # Copy to destination output
+    final_buf = use_a_as_input ? view(model._buf_a, 1:current_len) : view(model._buf_b, 1:current_len)
+    copyto!(output, 1, final_buf, 1, min(length(output), current_len))
+    return output
+end
+
+"""
+    forward!(model::WaveModel, input_data::AbstractVector{Float64}; t::Float64 = 0.0)::Vector{Float64}
+
+Executes an end-to-end forward wave pass across all l layers with temporal superposition.
+Allocates only a single output vector.
+"""
+function forward!(model::WaveModel, input_data::AbstractVector{Float64}; t::Float64 = 0.0)::Vector{Float64}
+    out_dim = isempty(model.layers) ? length(input_data) : model.layers[end].nodes
+    out = Vector{Float64}(undef, out_dim)
+    forward!(model, input_data, out; t=t)
+    return out
 end
 
 """
@@ -94,7 +152,7 @@ end
 """
     mutate!(model::WaveModel, rate::Float64)::Nothing
 
-Mutates all layers within the model.
+Mutates all layers within the model in-place.
 """
 function mutate!(model::WaveModel, rate::Float64)::Nothing
     for layer in model.layers
@@ -106,14 +164,10 @@ end
 """
     crossover(model_a::WaveModel, model_b::WaveModel)::WaveModel
 
-Recombines two models layer-by-layer to produce an offspring model.
+Recombines two models layer-by-layer using list comprehensions.
 """
 function crossover(model_a::WaveModel, model_b::WaveModel)::WaveModel
-    num_layers = length(model_a.layers)
-    child_layers = Vector{WaveLayer}(undef, num_layers)
-    for i in 1:num_layers
-        child_layers[i] = crossover(model_a.layers[i], model_b.layers[i])
-    end
+    child_layers = [crossover(la, lb) for (la, lb) in zip(model_a.layers, model_b.layers)]
     child = WaveModel(child_layers, model_a.field_config, model_a.model_config)
     child.generation = max(model_a.generation, model_b.generation) + 1
     return child
@@ -122,7 +176,7 @@ end
 """
     clone(model::WaveModel)::WaveModel
 
-Creates an exact deep copy of the wave model.
+Creates an exact deep copy of the wave model using list comprehensions.
 """
 function clone(model::WaveModel)::WaveModel
     cloned_layers = [deepcopy(l) for l in model.layers]

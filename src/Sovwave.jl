@@ -11,7 +11,7 @@ module Sovwave
 
 using Base # explicit self-containment intent (empty deps; nothing but stdlib/Base)
 
-const VERSION = v"0.3.1"
+const VERSION = v"0.3.2"
 
 # --- guarded includes --------------------------------------------------------
 const _SRC_DIR = joinpath(@__DIR__)
@@ -83,19 +83,23 @@ export WaveML
 export WaveModel, WaveLayer, WaveField, WaveForm, WaveTokenizer, WaveDataset, WaveDataLoader, WaveHead
 export WaveMLConfig, WaveFieldConfig, WaveModelConfig, WaveTrainConfig, WaveAudioConfig, WaveVideoConfig
 export default_config, load_config, save_config
-export default_tokenizer, build_tokenizer, tokenize, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens, to_wave_packet, encode_sequence, decode_embedding
+export default_tokenizer, build_tokenizer, tokenize, tokenize_frequencies, token_frequency, token_frequencies, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens, to_wave_packet, encode_sequence, decode_embedding
 export unicode_wave_frequency, unicode_wave_phase, token_wave_frequency, token_wave_phase, register_token!
 export convert_tokenizer, load_tokenizer_file, load_huggingface_tokenizer, convert_hf_tokenizer
 export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokenizer, llama_tokenizer
+export save_tokenizer, load_tokenizer, custom_tokenizer
 export format_tabular, format_text, format_images, format_timeseries, format_jev, format_dataset
 export from_tabular, from_text, from_image, from_timeseries, from_jev_state, num_samples, batch_size, num_batches
 export load_hf_dataset, hf_auth_token, hf_dataset_info
 export generate_text, generate_image, generate_3d, jev_decide, generate_video
 export inspect_model, model_summary, parameter_count, num_layers, get_layer, layer_details
 export save_model, load_model, infer, predict, train!, train_text!, train_llm, sonify_model, save_wav
+export forward!, mutate!, crossover, layer_energy, model_energy, init_population, evaluate_population!, evolve_generation!
 
-# Optional GPU acceleration
+# Optional GPU acceleration & Hybrid Engine
 export enable_cuda!, disable_cuda!, cuda_available, to_gpu, to_cpu
+export WaveHybridDispatcher, hybrid_dispatcher, benchmark_system_vs_cuda
+export hybrid_forward!, hybrid_forward_batch, hybrid_project_vocab, hybrid_evaluate!
 
 # Visual GUI Server
 using .GUI

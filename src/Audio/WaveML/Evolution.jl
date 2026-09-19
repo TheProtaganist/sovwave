@@ -51,13 +51,11 @@ Initializes a diverse population of wave models based on `cfg.train.population_s
 """
 function init_population(cfg::WaveMLConfig)::EvolutionState
     pop_size = cfg.train.population_size
-    pop = Vector{WaveModel}(undef, pop_size)
-    for i in 1:pop_size
+    pop = [begin
         m = WaveModel(cfg)
-        # Apply slight initial diversity mutation
         mutate!(m, 0.1)
-        pop[i] = m
-    end
+        m
+    end for _ in 1:pop_size]
     return EvolutionState(pop, cfg.train.learning_rate)
 end
 
@@ -69,7 +67,7 @@ end
         loss_type::Symbol = :mmd
     )::Float64
 
-Evaluates all models in the population over the input-target batch.
+Evaluates all models in the population over the input-target batch in parallel using `Threads.@threads`.
 Updates their energy states and tracks the global champion. Returns the best energy.
 """
 function evaluate_population!(
@@ -82,7 +80,8 @@ function evaluate_population!(
     N = length(pop)
     batch_len = min(length(batch_inputs), length(batch_targets))
 
-    for i in 1:N
+    # Parallelize model evaluations across available CPU threads
+    Threads.@threads for i in 1:N
         model = pop[i]
         total_e = 0.0
 
@@ -91,14 +90,14 @@ function evaluate_population!(
             total_e += compute_loss(out, batch_targets[b]; type=loss_type)
         end
 
-        avg_energy = total_e / max(batch_len, 1)
-        state.energies[i] = avg_energy
+        state.energies[i] = total_e / max(batch_len, 1)
+    end
 
-        # Check if new global best
-        if avg_energy < state.best_energy
-            state.best_energy = avg_energy
-            state.best_model = clone(model)
-        end
+    # Deterministic thread-safe champion tracking
+    min_e, best_idx = findmin(state.energies)
+    if min_e < state.best_energy
+        state.best_energy = min_e
+        state.best_model = clone(pop[best_idx])
     end
 
     return state.best_energy
@@ -108,7 +107,8 @@ end
     evolve_generation!(state::EvolutionState, elite_fraction::Float64 = 0.15)::Nothing
 
 Advances the population by one generation using the tournament-winning
-**Multi-Subpopulation Island Migration Selection** and **Arithmetic Wave Crossover**.
+**Multi-Subpopulation Island Migration Selection** and **Arithmetic Wave Crossover**
+optimized with type-stable list comprehensions.
 """
 function evolve_generation!(state::EvolutionState, elite_fraction::Float64 = 0.15)::Nothing
     pop = state.population
@@ -120,20 +120,15 @@ function evolve_generation!(state::EvolutionState, elite_fraction::Float64 = 0.1
     perm = sortperm(energies)
     sorted_pop = pop[perm]
 
-    # Elite preservation
+    # Elite preservation via list comprehension
     n_elites = max(1, round(Int, N * elite_fraction))
-    new_pop = Vector{WaveModel}(undef, N)
+    elites = [clone(sorted_pop[i]) for i in 1:n_elites]
 
-    for i in 1:n_elites
-        new_pop[i] = clone(sorted_pop[i])
-    end
-
-    # Island migration tournament selection
+    # Island migration tournament selection via comprehension
     num_islands = state.islands
-    island_size = N ÷ num_islands
+    island_size = max(1, N ÷ num_islands)
 
-    for i in (n_elites + 1):N
-        # Island selection: pick from an island with periodic cross-island migration
+    offspring = [begin
         island_idx = (i % num_islands)
         island_start = island_idx * island_size + 1
         island_end = min((island_idx + 1) * island_size, N)
@@ -159,11 +154,10 @@ function evolve_generation!(state::EvolutionState, elite_fraction::Float64 = 0.1
 
         # Champion Correlated Mutation
         mutate!(child, lr)
+        child
+    end for i in (n_elites + 1):N]
 
-        new_pop[i] = child
-    end
-
-    state.population = new_pop
+    state.population = vcat(elites, offspring)
     state.generation += 1
     return nothing
 end
