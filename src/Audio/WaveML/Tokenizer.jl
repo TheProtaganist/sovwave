@@ -242,7 +242,7 @@ function default_tokenizer(;
         end
     end
     # 3. Pretrained models or Hugging Face repo strings
-    if m_str in ("qwen", "qwen2", "mistral", "llama", "llama3", "deepseek") || occursin("/", m_str)
+    if m_str in ("qwen", "qwen2", "mistral", "llama", "llama3", "deepseek", "deepseek_v4", "deepseek-v4", "deepseek4", "deepseek_v3", "deepseek-v3") || startswith(m_str, "deepseek") || occursin("/", m_str)
         try
             return load_huggingface_tokenizer(m_str; token=token, carrier_frequency=carrier_frequency, beta_s=beta_s)
         catch e

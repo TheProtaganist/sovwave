@@ -76,7 +76,7 @@ export tokenize, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens
 export to_wave_packet, encode_sequence, decode_embedding, decode_sequence_embeddings
 export unicode_wave_frequency, unicode_wave_phase, token_wave_frequency, token_wave_phase, register_token!
 export convert_tokenizer, load_tokenizer_file, load_huggingface_tokenizer, convert_hf_tokenizer
-export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokenizer, llama_tokenizer
+export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokenizer, llama_tokenizer, deepseek_tokenizer, deepseek_v4_tokenizer
 export save_tokenizer, load_tokenizer, custom_tokenizer
 
 # Public exports: Dataset

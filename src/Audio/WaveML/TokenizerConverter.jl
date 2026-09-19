@@ -18,7 +18,7 @@ using Printf
 using LinearAlgebra
 
 export convert_tokenizer, load_tokenizer_file, load_huggingface_tokenizer, convert_hf_tokenizer
-export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokenizer, llama_tokenizer
+export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokenizer, llama_tokenizer, deepseek_tokenizer, deepseek_v4_tokenizer
 export save_tokenizer, load_tokenizer, custom_tokenizer
 
 # ASCII byte constants for fast JSON scanning
@@ -218,8 +218,13 @@ const MODEL_HF_ALIASES = Dict{String, String}(
     "mistral"   => "mistralai/Mistral-7B-v0.1",
     "llama"     => "meta-llama/Llama-3.2-1B",
     "llama3"    => "meta-llama/Llama-3.2-1B",
-    "deepseek"  => "deepseek-ai/DeepSeek-V3",
-    "deepseek2" => "deepseek-ai/DeepSeek-V2-Lite"
+    "deepseek"    => "deepseek-ai/DeepSeek-V3",
+    "deepseek_v4" => "deepseek-ai/DeepSeek-V3",
+    "deepseek-v4" => "deepseek-ai/DeepSeek-V3",
+    "deepseek4"   => "deepseek-ai/DeepSeek-V3",
+    "deepseek_v3" => "deepseek-ai/DeepSeek-V3",
+    "deepseek-v3" => "deepseek-ai/DeepSeek-V3",
+    "deepseek2"   => "deepseek-ai/DeepSeek-V2-Lite"
 )
 
 """
@@ -343,6 +348,16 @@ Returns the converted LLaMA 3.2 pipeline tokenizer (128,256 tokens).
 """
 llama_tokenizer(; token=nothing, carrier_frequency=432.0, beta_s=1.618033988749895) =
     load_huggingface_tokenizer("llama"; token=token, carrier_frequency=carrier_frequency, beta_s=beta_s)
+
+"""
+    deepseek_tokenizer(; token=nothing, carrier_frequency=432.0, beta_s=1.618033988749895)::WaveTokenizer
+
+Returns the converted DeepSeek (V3/V4) pipeline tokenizer (128,006+ tokens).
+"""
+deepseek_tokenizer(; token=nothing, carrier_frequency=432.0, beta_s=1.618033988749895) =
+    load_huggingface_tokenizer("deepseek"; token=token, carrier_frequency=carrier_frequency, beta_s=beta_s)
+
+const deepseek_v4_tokenizer = deepseek_tokenizer
 
 """
     save_tokenizer(tok::WaveTokenizer, filepath::String)::String
