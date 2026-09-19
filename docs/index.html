@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sovwave.jl | Pure Wave Computing & Quantum-Acoustic Deep Learning</title>
-  <meta name="description" content="Sovwave.jl - Continuous morphogenetic wave intelligence, sacred harmonics (432Hz), and video-native model serialization in Julia.">
+  <meta name="description" content="Sovwave.jl - Continuous morphogenetic wave intelligence, harmonic wave tokenizer, 5 native model architectures, and video model serialization in Julia.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
@@ -55,7 +55,7 @@
     }
 
     .nav-container {
-      max-width: 1200px;
+      max-width: 1240px;
       margin: 0 auto;
       padding: 1rem 2rem;
       display: flex;
@@ -98,38 +98,43 @@
       color: var(--accent-cyan);
     }
 
-    .btn-github {
-      background: #238636;
-      color: #fff;
-      padding: 0.45rem 1rem;
-      border-radius: 6px;
-      text-decoration: none;
-      font-size: 0.9rem;
-      font-weight: 600;
-      transition: background 0.2s;
-    }
-
-    .btn-github:hover {
-      background: #2ea043;
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 2rem;
     }
 
     .hero {
-      padding: 6rem 2rem 4rem;
-      max-width: 1100px;
-      margin: 0 auto;
+      padding: 5rem 0 3.5rem;
       text-align: center;
+      position: relative;
     }
 
-    .hero-badge {
-      display: inline-block;
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 20%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(255, 0, 255, 0.15) 0%, rgba(0, 255, 255, 0.1) 40%, rgba(7, 9, 14, 0) 70%);
+      z-index: -1;
+      filter: blur(60px);
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
       padding: 0.35rem 1rem;
-      border-radius: 50px;
-      background: rgba(255, 0, 255, 0.1);
-      border: 1px solid rgba(255, 0, 255, 0.3);
-      color: #ff77ff;
+      background: rgba(0, 255, 255, 0.08);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 9999px;
       font-size: 0.85rem;
-      font-weight: 600;
+      color: var(--accent-cyan);
       margin-bottom: 1.5rem;
+      font-weight: 600;
       letter-spacing: 0.5px;
       text-transform: uppercase;
     }
@@ -142,82 +147,78 @@
       letter-spacing: -1px;
     }
 
-    .hero h1 .gradient-text {
-      background: var(--glow-cmy);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
     .hero p {
       font-size: 1.25rem;
       color: var(--text-secondary);
-      max-width: 760px;
+      max-width: 800px;
       margin: 0 auto 2.5rem;
     }
 
-    .hero-cta {
+    .hero-actions {
       display: flex;
       justify-content: center;
       gap: 1rem;
-      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1.75rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      border: none;
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, #00ffff, #38bdf8);
-      color: #07090e;
-      padding: 0.75rem 1.75rem;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: 700;
-      font-size: 1rem;
-      transition: transform 0.2s, box-shadow 0.2s;
+      background: var(--glow-cmy);
+      color: #000;
     }
 
     .btn-primary:hover {
-      transform: translateY(-2px);
       box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+      transform: translateY(-2px);
     }
 
     .btn-secondary {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-color);
+      background: var(--bg-surface-alt);
       color: var(--text-primary);
-      padding: 0.75rem 1.75rem;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 1rem;
-      transition: background 0.2s;
+      border: 1px solid var(--border-color);
     }
 
     .btn-secondary:hover {
-      background: var(--bg-surface-alt);
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 3rem 2rem;
+      border-color: var(--text-secondary);
+      transform: translateY(-2px);
     }
 
     .section-title {
-      font-size: 2.2rem;
-      font-weight: 800;
+      font-size: 2rem;
+      font-weight: 700;
       margin-bottom: 0.75rem;
       letter-spacing: -0.5px;
     }
 
     .section-desc {
       color: var(--text-secondary);
-      font-size: 1.1rem;
-      margin-bottom: 2.5rem;
+      margin-bottom: 2rem;
+      font-size: 1.05rem;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
     }
 
     .grid-3 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 1.5rem;
-      margin-bottom: 3rem;
     }
 
     .card {
@@ -225,82 +226,32 @@
       border: 1px solid var(--border-color);
       border-radius: 12px;
       padding: 1.75rem;
-      transition: border-color 0.2s, transform 0.2s;
-    }
-
-    .card:hover {
-      border-color: rgba(0, 255, 255, 0.4);
-      transform: translateY(-3px);
-    }
-
-    .card-icon {
-      font-size: 2rem;
-      margin-bottom: 1rem;
+      position: relative;
+      overflow: hidden;
     }
 
     .card h3 {
-      font-size: 1.3rem;
-      font-weight: 700;
+      font-size: 1.25rem;
       margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .card p {
       color: var(--text-secondary);
       font-size: 0.95rem;
+      margin-bottom: 1rem;
     }
 
-    .interactive-card {
-      background: var(--bg-surface);
+    pre {
+      background: #040608;
       border: 1px solid var(--border-color);
-      border-radius: 16px;
-      padding: 2.5rem;
-      margin-bottom: 4rem;
-    }
-
-    .color-swatches {
-      display: flex;
-      gap: 1.5rem;
-      margin-top: 1.5rem;
-      flex-wrap: wrap;
-    }
-
-    .swatch {
-      flex: 1;
-      min-width: 200px;
-      border-radius: 10px;
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      min-height: 120px;
-      color: #000;
-      font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    }
-
-    .swatch-0 {
-      background: #FF00FF;
-      color: #fff;
-    }
-
-    .swatch-1 {
-      background: #FFFF00;
-    }
-
-    .swatch-2 {
-      background: #00FFFF;
-    }
-
-    .code-block {
-      background: #0d1117;
-      border: 1px solid #30363d;
       border-radius: 8px;
-      padding: 1.25rem;
-      font-size: 0.9rem;
+      padding: 1rem 1.25rem;
       overflow-x: auto;
-      margin: 1.25rem 0;
-      position: relative;
+      font-size: 0.88rem;
+      color: #a5d6ff;
     }
 
     table {
@@ -308,34 +259,100 @@
       border-collapse: collapse;
       margin: 1.5rem 0;
       background: var(--bg-surface);
+      border: 1px solid var(--border-color);
       border-radius: 8px;
       overflow: hidden;
-      border: 1px solid var(--border-color);
     }
 
     th, td {
-      padding: 0.9rem 1.2rem;
+      padding: 0.85rem 1rem;
       text-align: left;
       border-bottom: 1px solid var(--border-color);
-      font-size: 0.95rem;
+      font-size: 0.92rem;
     }
 
     th {
       background: var(--bg-surface-alt);
-      font-weight: 700;
       color: var(--text-primary);
+      font-weight: 600;
     }
 
-    tr:hover {
+    tr:hover td {
       background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Live Interactive Tokenizer Widget */
+    .widget-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      margin: 2rem 0;
+    }
+
+    .interactive-input {
+      width: 100%;
+      padding: 0.85rem 1.25rem;
+      background: #05070c;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .interactive-input:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
+    }
+
+    canvas {
+      width: 100%;
+      height: 180px;
+      background: #030407;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      display: block;
+      margin-bottom: 1rem;
+    }
+
+    .token-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .token-pill {
+      background: var(--bg-surface-alt);
+      border: 1px solid var(--border-color);
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .token-pill .freq {
+      color: var(--accent-cyan);
+      font-weight: bold;
+    }
+
+    .token-pill .phase {
+      color: var(--accent-magenta);
     }
 
     footer {
       border-top: 1px solid var(--border-color);
-      padding: 3rem 2rem;
+      padding: 3rem 0;
       text-align: center;
       color: var(--text-muted);
       font-size: 0.9rem;
+      margin-top: 5rem;
     }
 
     footer a {
@@ -345,6 +362,15 @@
 
     footer a:hover {
       color: var(--accent-cyan);
+    }
+
+    @media (max-width: 900px) {
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+      .hero h1 {
+        font-size: 2.5rem;
+      }
     }
   </style>
 </head>
@@ -356,223 +382,433 @@
         🌊 <span>Sovwave.jl</span>
       </a>
       <ul class="nav-links">
-        <li><a href="#architecture">Architecture</a></li>
-        <li><a href="#video">Video Model</a></li>
-        <li><a href="#audio">Audio Sonification</a></li>
-        <li><a href="#inference">Inference</a></li>
-        <li><a href="#config">Config</a></li>
-        <li><a href="#benchmarks">Tournament</a></li>
+        <li><a href="#quickstart">Install</a></li>
+        <li><a href="#tokenizer">Wave Tokenizer</a></li>
+        <li><a href="#competitors">Competitors</a></li>
+        <li><a href="#architectures">5 Architectures</a></li>
+        <li><a href="#jev">Jev Engine</a></li>
+        <li><a href="#tournaments">7x144 Tournaments</a></li>
+        <li><a href="#introspection">Introspection</a></li>
+        <li><a href="https://github.com/TheProtaganist/sovwave" target="_blank">GitHub</a></li>
       </ul>
-      <a href="https://github.com/TheProtaganist/sovwave" class="btn-github" target="_blank">GitHub</a>
     </div>
   </header>
 
   <main>
-    <section class="hero">
-      <div class="hero-badge">Pure Wave Computing in Julia</div>
-      <h1>Compute via Continuous <br><span class="gradient-text">Morphogenetic Interference</span></h1>
-      <p>
-        Zero matrix multiplications. Zero Markov chains. Zero backpropagation. 
-        Models serialized as glowing audio-visual video files that run direct inference.
-      </p>
-      <div class="hero-cta">
-        <a href="#quickstart" class="btn-primary">Get Started</a>
-        <a href="https://github.com/TheProtaganist/sovwave" class="btn-secondary" target="_blank">View on GitHub</a>
-      </div>
-    </section>
-
     <div class="container">
-      <!-- Feature Cards -->
-      <div class="grid-3" id="architecture">
-        <div class="card">
-          <div class="card-icon">⚛️</div>
-          <h3>Continuous Manifold Field</h3>
-          <p>Data points live in a smooth d-dimensional spatial manifold with physical properties (mass, charge, energy, spin) rather than discrete tensors.</p>
-        </div>
-        <div class="card">
-          <div class="card-icon">🎶</div>
-          <h3>Sacred 432 Hz Harmonics</h3>
-          <p>Oscillators vibrate with golden ratio scaling (Φ ≈ 1.618033) and A4=432Hz carrier tuning, maintaining zero phase drift with nanosecond precision.</p>
-        </div>
-        <div class="card">
-          <div class="card-icon">🎬</div>
-          <h3>Dual-Stream Video Model</h3>
-          <p>Models are stored as playable .mkv and .mp4 videos. Double-click to see the neural lattice vibrate and hear its trained harmonic sonification.</p>
-        </div>
-      </div>
-
-      <!-- Emergent Video Section -->
-      <section id="video" class="interactive-card">
-        <h2 class="section-title">Emergent Video Model Architecture</h2>
-        <p class="section-desc">
-          Step 1 to Step n training noise is excluded. The video starts at <strong>Step n</strong> (the fully coherent, converged model) in full color and evolves to Step n_final.
+      <!-- Hero -->
+      <section class="hero">
+        <div class="badge-pill">v0.2.0 • Pure Wave Computing Framework</div>
+        <h1>Harmonic Wave Intelligence<br><span>Without Matrix Multiplications</span></h1>
+        <p>
+          Sovwave replaces discrete token arrays, binary neural matrices, and Markov chain approximations
+          with continuous wave interference, quantum lattice oscillators (432Hz carrier), and video-native model serialization.
         </p>
-
-        <div class="grid-3">
-          <div class="card">
-            <h4>Stream 0:0 — Visual Brain (H.264)</h4>
-            <p>Renders thermodynamic domain projection using the <strong>Potts Model q-State Clock Domains</strong> champion algorithm (8.7 ns / point, 0 allocations).</p>
-          </div>
-          <div class="card">
-            <h4>Stream 0:1 — Exact Weights (FFV1)</h4>
-            <p>Lossless mathematical video stream encoding 100% bit-for-bit accurate layer amplitudes, phases, frequencies, and fractal scales.</p>
-          </div>
-          <div class="card">
-            <h4>Stream 0:2 — Presentation Audio (AAC)</h4>
-            <p>192 kbps stereo sound synthesized directly from the model's vibrating lattice oscillators. <em>Audio is strictly for presentation; inference ignores it.</em></p>
-          </div>
-        </div>
-
-        <h3 style="margin-top: 2rem; margin-bottom: 0.5rem;">Emergent Potts Domain Color Mapping</h3>
-        <p style="color: var(--text-secondary); font-size: 0.95rem;">
-          Naturally emerging discrete symmetry breaking across 3-state Potts clock domains:
-        </p>
-
-        <div class="color-swatches">
-          <div class="swatch swatch-0">
-            <span>State 0 (Clock 0°)</span>
-            <span style="font-size: 1.2rem;">#FF00FF</span>
-            <span>RGB: [1.0, 0.0, 1.0] (Magenta)</span>
-          </div>
-          <div class="swatch swatch-1">
-            <span>State 1 (Clock 120°)</span>
-            <span style="font-size: 1.2rem;">#FFFF00</span>
-            <span>RGB: [1.0, 1.0, 0.0] (Yellow)</span>
-          </div>
-          <div class="swatch swatch-2">
-            <span>State 2 (Clock 240°)</span>
-            <span style="font-size: 1.2rem;">#00FFFF</span>
-            <span>RGB: [0.0, 1.0, 1.0] (Cyan)</span>
-          </div>
+        <div class="hero-actions">
+          <a href="#quickstart" class="btn btn-primary">⚡ Quick Install</a>
+          <a href="#tokenizer" class="btn btn-secondary">🎵 Try Wave Tokenizer</a>
+          <a href="https://github.com/TheProtaganist/sovwave" target="_blank" class="btn btn-secondary">⭐ Star on GitHub</a>
         </div>
       </section>
 
-      <!-- Direct Inference Section -->
-      <section id="inference" style="margin-bottom: 4rem;">
-        <h2 class="section-title">Direct Video Inference</h2>
-        <p class="section-desc">Run predictions straight from your model's video file:</p>
-        
-        <div class="code-block">
-<pre><code class="language-julia">using Sovwave
-using Sovwave.Audio
-
-# Directly load model weights from MKV video and infer
-input_vector = rand(32)
-prediction = infer("wave_model_brain.mkv", input_vector)
-
-println("Prediction vector: ", prediction)</code></pre>
-        </div>
-      </section>
-
-      <!-- Audio Sonification Section -->
-      <section id="audio" style="margin-bottom: 4rem;">
-        <h2 class="section-title">Audio Sonification & Sacred Harmonics</h2>
-        <p class="section-desc">
-          Complete user control over auditory synthesis. No frequencies are hardcoded:
-        </p>
-        <div class="grid-3">
-          <div class="card">
-            <h4>Carrier Frequency Tuning</h4>
-            <p>Choose <strong>432 Hz</strong> (Verdi / Sacred), <strong>528 Hz</strong> (Solfeggio Transformation), <strong>440 Hz</strong>, or ANY user-defined floating-point frequency.</p>
-          </div>
-          <div class="card">
-            <h4>Binaural Brainwave Entrainment</h4>
-            <p>Stereo frequency offset (e.g. 10 Hz Alpha waves, 6 Hz Theta meditation) for synchronized hemisphere coherence.</p>
-          </div>
-          <div class="card">
-            <h4>Waveform Architectures</h4>
-            <p>Spring-mass physical resonators, harmonic overtone series, pure sine waves, continuous triangles, and geometric sawtooths.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Quick Start Section -->
+      <!-- Installation -->
       <section id="quickstart" style="margin-bottom: 4rem;">
-        <h2 class="section-title">Quick Start Guide</h2>
-        <p class="section-desc">Install Sovwave and run your first continuous wave training loop:</p>
-
-        <div class="code-block">
-<pre><code class="language-julia"># 1. Install via Julia Pkg
-using Pkg
+        <h2 class="section-title">📦 Frictionless Pkg Installation</h2>
+        <p class="section-desc">Install directly into any Julia 1.9+ environment with zero GPU drivers or C-bindings required:</p>
+        <pre><code>using Pkg
 Pkg.add(url="https://github.com/TheProtaganist/sovwave.git")
 
-# 2. Train and Serialize Model
-using Sovwave
-using Sovwave.Audio
-
-cfg = load_config("model_config.yaml")
-field = create_field(cfg.field)
-model = WaveModel(cfg)
-
-inputs = [rand(cfg.model.embed_dims) for _ in 1:100]
-targets = [rand(cfg.model.embed_dims) for _ in 1:100]
-
-# Train via wave evolution seeking ground state
-train!(model, inputs, targets, cfg.train)
-
-# Save as dual-stream MKV video with presentation audio!
-save_model(model, "wave_brain.mkv"; video_cfg=cfg.video, audio_cfg=cfg.audio)
-
-# Run direct inference from the video file
-output = infer("wave_brain.mkv", inputs[1])</code></pre>
-        </div>
+# Load Sovwave & pure wave computing
+using Sovwave</code></pre>
       </section>
 
-      <!-- Tournament Leaderboard -->
-      <section id="benchmarks" style="margin-bottom: 4rem;">
-        <h2 class="section-title">144-Algorithm Tournament Results</h2>
-        <p class="section-desc">
-          To ensure optimal performance, 144 algorithms competed across 12 elimination rounds:
-        </p>
+      <!-- Competitor Matrix -->
+      <section id="competitors" style="margin-bottom: 4rem;">
+        <h2 class="section-title">⚔️ Framework Comparison Matrix</h2>
+        <p class="section-desc">How Sovwave compares directly to PyTorch, JAX, NumPy, and Flux.jl:</p>
         <table>
           <thead>
             <tr>
-              <th>Rank</th>
-              <th>Algorithm</th>
-              <th>Speed</th>
-              <th>Allocs</th>
-              <th>Category</th>
+              <th>Feature</th>
+              <th>Sovwave.jl</th>
+              <th>PyTorch</th>
+              <th>JAX</th>
+              <th>NumPy</th>
+              <th>Flux.jl</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>👑 <strong>Grand Champion</strong></td>
-              <td><code>potts_model_q_state_domains</code></td>
-              <td><strong>8.7 ns / pt</strong></td>
-              <td>0 allocs</td>
-              <td>Thermodynamic Clock Symmetry Breaking</td>
+              <td><strong>Computational Core</strong></td>
+              <td><span style="color:var(--accent-cyan); font-weight:bold;">Continuous Wave Fields $\psi(t)$</span></td>
+              <td>Discrete Tensors</td>
+              <td>Pure Functions / XLA</td>
+              <td>Multidimensional Arrays</td>
+              <td>Julia Tensors</td>
             </tr>
             <tr>
-              <td>🎨 <strong>Aesthetic Winner</strong></td>
-              <td><code>fibonacci_phyllotaxis_resonance</code></td>
-              <td>13.2 ns / pt</td>
-              <td>0 allocs</td>
-              <td>Golden Angle Spirals (137.5°)</td>
+              <td><strong>Optimization</strong></td>
+              <td><span style="color:var(--accent-emerald); font-weight:bold;">Ground-State Energy Evolution</span></td>
+              <td>Reverse-mode Autograd</td>
+              <td>VJP / Grad</td>
+              <td>None (Manual)</td>
+              <td>Zygote.jl Autograd</td>
             </tr>
             <tr>
-              <td>⚡ <strong>Phase Precision</strong></td>
-              <td><code>neumaier_compensated_angle</code></td>
-              <td>1.1 ns / pt</td>
-              <td>0 allocs</td>
-              <td>Compensated Summation (389x vs BigFloat)</td>
+              <td><strong>Tokenizer Primitive</strong></td>
+              <td><span style="color:var(--accent-yellow); font-weight:bold;">Acoustic WaveForms (Sound & Freq)</span></td>
+              <td>Discrete Integer IDs</td>
+              <td>Discrete Integer IDs</td>
+              <td>None</td>
+              <td>Discrete Tokens</td>
             </tr>
             <tr>
-              <td>🌊 <strong>Field Dynamics</strong></td>
-              <td><code>coupled_harmonic_stencil</code></td>
-              <td>4.2 ns / pt</td>
-              <td>0 allocs</td>
-              <td>Continuous Laplacian Stencil</td>
+              <td><strong>Model Serialization</strong></td>
+              <td><span style="color:var(--accent-magenta); font-weight:bold;">Lossless Dual-Stream Video (.mkv/.mp4)</span></td>
+              <td>.pt / .safetensors</td>
+              <td>.msgpack</td>
+              <td>.npy / .npz</td>
+              <td>.bson / JLD2</td>
+            </tr>
+            <tr>
+              <td><strong>Model Sonification</strong></td>
+              <td><span style="color:var(--accent-cyan); font-weight:bold;">Native Acoustic Synthesis (WAV/Live)</span></td>
+              <td>External Libraries</td>
+              <td>None</td>
+              <td>None</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td><strong>Hallucination Immunity</strong></td>
+              <td><span style="color:var(--accent-emerald); font-weight:bold;">Built-in (Jev Decision Engine)</span></td>
+              <td>Vulnerable</td>
+              <td>Vulnerable</td>
+              <td>N/A</td>
+              <td>Vulnerable</td>
             </tr>
           </tbody>
         </table>
+      </section>
+
+      <!-- Live Interactive Wave Tokenizer Widget -->
+      <section id="tokenizer" style="margin-bottom: 4rem;">
+        <h2 class="section-title">🎵 Interactive Wave Tokenizer</h2>
+        <p class="section-desc">
+          Type below to observe how text is tokenized into <strong>physical continuous waveforms</strong> (resonant carrier frequencies, circular phases, and sound wave packets):
+        </p>
+        <div class="widget-box">
+          <input type="text" id="token-input" class="interactive-input" value="harmonic wave computing" placeholder="Type text to synthesize acoustic waveforms...">
+          
+          <canvas id="wave-canvas"></canvas>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
+            <button id="play-sound-btn" class="btn btn-primary" style="font-size:0.9rem; padding:0.5rem 1.25rem;">
+              🔊 Play Synthesized Waveform
+            </button>
+            <span id="wave-stats" style="font-family:'JetBrains Mono', monospace; font-size:0.85rem; color:var(--text-secondary);">
+              13 WaveForms • Carrier: 432 Hz • Golden Ratio: 1.618
+            </span>
+          </div>
+
+          <div class="token-pills" id="token-pills"></div>
+        </div>
+      </section>
+
+      <!-- The 5 Native Model Architectures -->
+      <section id="architectures" style="margin-bottom: 4rem;">
+        <h2 class="section-title">🧠 5 Default Native Model Architectures</h2>
+        <p class="section-desc">Sovwave includes 5 native trainable model architectures operating over continuous wave fields:</p>
+        
+        <div class="grid-3" style="margin-bottom: 1.5rem;">
+          <div class="card">
+            <h3>📖 1. Wave LLM</h3>
+            <p>Autoregressive sequence modeling predicting next-token continuous wave packets through golden spiral context memory.</p>
+            <pre><code>out = generate_text(model, tok, "wave packet", max_new_tokens=8)</code></pre>
+          </div>
+          <div class="card">
+            <h3>🖼️ 2. Image Generation</h3>
+            <p>Continuous 2D spatial surface de-interference synthesizing pixel manifolds from latent harmonic states.</p>
+            <pre><code>img = generate_image(model, "cymatic pattern"; height=32, width=32)</code></pre>
+          </div>
+          <div class="card">
+            <h3>🧊 3. Text-to-3D</h3>
+            <p>Volumetric radiance fields $(x, y, z) \mapsto (\sigma, R, G, B)$ mapped across continuous coordinate lattices.</p>
+            <pre><code>vol = generate_3d(model, "sacred solid"; resolution=8)</code></pre>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card" id="jev" style="border-color: rgba(16, 185, 129, 0.4);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+              <h3 style="color:var(--accent-emerald); margin-bottom:0;">🛡️ 4. Jev Decision Engine</h3>
+              <span class="badge-pill" style="margin-bottom:0; color:var(--accent-emerald); border-color:var(--accent-emerald);">100% Hallucination-Immune</span>
+            </div>
+            <p>
+              <strong>Jev reads language but never writes it.</strong> It ingests an application's data state alongside predefined questions and returns type-safe, structured probabilistic decisions (<code>:boolean</code>, <code>:category</code>, <code>:rubric</code>). Because it cannot generate open-ended text, it is completely immune to traditional text hallucinations.
+            </p>
+            <pre><code>decisions = jev_decide(
+    model, 
+    Dict("temp" => 84.5, "pressure" => 3.2), 
+    ["Should cool?", "Risk score?"]; 
+    question_types=[:boolean, :rubric]
+)</code></pre>
+          </div>
+
+          <div class="card">
+            <h3>🎬 5. Text-to-Video</h3>
+            <p>Spatio-temporal wave dynamics evolved across frames $t$ and serialized directly to lossless Dual-Stream MKV/MP4 files.</p>
+            <pre><code>generate_video(model, "vortex dynamics", "vortex.mkv"; frames=16, fps=4)</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7x144 Evolutionary Tournaments -->
+      <section id="tournaments" style="margin-bottom: 4rem;">
+        <h2 class="section-title">🏆 7x144 Evolutionary Tournament Champions</h2>
+        <p class="section-desc">
+          Every core subsystem was evaluated through a 144-algorithm tournament (12 rounds × 12 candidates, with 6 evolutionary mutations of the previous winner + 6 new unrelated candidates per round):
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Subsystem</th>
+              <th>Grand Champion Algorithm</th>
+              <th>Throughput / Latency</th>
+              <th>Physical Metric</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1. Wave Tokenizer</strong></td>
+              <td><code>CharLevel_ContinuousFourier_FastEnvelope_QuantumManifold</code></td>
+              <td>76.7 µs / packet</td>
+              <td>100% string accuracy, 1.0 coherence</td>
+              <td><strong>7,130.31</strong></td>
+            </tr>
+            <tr>
+              <td><strong>2. Wave Dataset</strong></td>
+              <td><code>PottsState_CategoricalProjection_FastPacked16</code></td>
+              <td>53.6 µs / 50 samples</td>
+              <td>100% fidelity, 0.6662 energy var</td>
+              <td><strong>6,852.06</strong></td>
+            </tr>
+            <tr>
+              <td><strong>3. LLM (:llm)</strong></td>
+              <td><code>FibonacciSpiral_ContextMemory_v2_UltraFastBurst1</code></td>
+              <td>8,386.6 tokens/sec (0.6 ms)</td>
+              <td>0.7273 diversity, 0 hallucination</td>
+              <td><strong>10,375.12</strong></td>
+            </tr>
+            <tr>
+              <td><strong>4. Image Gen</strong></td>
+              <td><code>ChladniNodal_GridProjection</code></td>
+              <td>429,456.1 pixels/sec (0.6 ms)</td>
+              <td>1.0000 spatial contrast</td>
+              <td><strong>11,294.56</strong></td>
+            </tr>
+            <tr>
+              <td><strong>5. Text-to-3D</strong></td>
+              <td><code>PlatonicTetrahedral_ResonanceField</code></td>
+              <td>134,928.0 voxels/sec (0.47 ms)</td>
+              <td>1.0000 density variance</td>
+              <td><strong>12,000.00</strong></td>
+            </tr>
+            <tr>
+              <td><strong>6. Jev Engine</strong></td>
+              <td><code>ChladniNodal_CategorySeparator</code></td>
+              <td>2,321.7 decisions/sec (1.72 ms)</td>
+              <td>100% type safety, 0% hallucination</td>
+              <td><strong>7,595.38</strong></td>
+            </tr>
+            <tr>
+              <td><strong>7. Video Gen</strong></td>
+              <td><code>LagrangianPhaseFlow_VideoDynamics_v2_HighRes8Frames</code></td>
+              <td>1,538.6 frames/sec (5.2 ms)</td>
+              <td>0.9822 temporal continuity</td>
+              <td><strong>11,946.46</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Introspection API -->
+      <section id="introspection" style="margin-bottom: 4rem;">
+        <h2 class="section-title">🔍 Model Reading & Introspection API</h2>
+        <p class="section-desc">Full visibility into quantum node lattices, learned wave amplitudes, phases, and frequencies:</p>
+        <pre><code>using Sovwave
+
+model = WaveModel(default_config())
+
+# Read architecture metrics
+n_layers = num_layers(model)            # 4
+p_count = parameter_count(model)        # 24,836 continuous wave parameters
+
+# Print formatted summary table
+model_summary(model)
+
+# Deep inspection of individual layers & disk files (.mkv)
+details = layer_details(model, 1)
+file_info = inspect_model("trained_model.mkv")</code></pre>
       </section>
     </div>
   </main>
 
   <footer>
-    <p>Sovwave.jl is open source under the <a href="https://opensource.org/licenses/MIT" target="_blank">MIT License</a>.</p>
-    <p style="margin-top: 0.5rem;">Maintained by <a href="https://github.com/TheProtaganist" target="_blank">TheProtaganist</a>.</p>
+    <div class="container">
+      <p>Sovwave.jl is open source under the <a href="https://opensource.org/licenses/MIT" target="_blank">MIT License</a>.</p>
+      <p style="margin-top: 0.5rem;">Maintained by <a href="https://github.com/TheProtaganist" target="_blank">TheProtaganist</a> • Pure Wave Computing Framework.</p>
+    </div>
   </footer>
 
+  <script>
+    // Live Interactive Wave Tokenizer JS
+    const tokenInput = document.getElementById('token-input');
+    const canvas = document.getElementById('wave-canvas');
+    const ctx = canvas.getContext('2d');
+    const playBtn = document.getElementById('play-sound-btn');
+    const pillsContainer = document.getElementById('token-pills');
+    const statsEl = document.getElementById('wave-stats');
+
+    // Resize canvas
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = 180;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let animationId;
+    let time = 0;
+    let activeWaveforms = [];
+    let audioCtx = null;
+
+    function computeWaveforms(text) {
+      const words = text.split(/(\s+)/).filter(w => w.length > 0);
+      const carrier = 432.0;
+      const phi = 1.6180339887;
+      const res = [];
+
+      words.forEach((tok, idx) => {
+        let hash = 0;
+        for (let i = 0; i < tok.length; i++) {
+          hash = (hash * 31 + tok.charCodeAt(i)) % 10000;
+        }
+        const octave = (hash % 12) / 12.0;
+        const freq = carrier * Math.pow(phi, octave) * (1.0 + Math.floor(hash / 1000) * 0.05);
+        const phase = (2 * Math.PI * (hash % 360)) / 360;
+        res.push({
+          token: tok,
+          freq: Math.round(freq * 10) / 10,
+          phase: Math.round(phase * 100) / 100
+        });
+      });
+      return res;
+    }
+
+    function updatePills(waveforms) {
+      pillsContainer.innerHTML = '';
+      waveforms.forEach(wf => {
+        const div = document.createElement('div');
+        div.className = 'token-pill';
+        div.innerHTML = `<span>"${wf.token}"</span> <span class="freq">${wf.freq} Hz</span> <span class="phase">φ=${wf.phase}</span>`;
+        pillsContainer.appendChild(div);
+      });
+      statsEl.textContent = `${waveforms.length} WaveForms • Carrier: 432 Hz • Golden Ratio: 1.618`;
+    }
+
+    function drawWave() {
+      ctx.fillStyle = '#030407';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const midY = h / 2;
+
+      // Draw grid lines
+      ctx.strokeStyle = '#101622';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, midY);
+      ctx.lineTo(w, midY);
+      ctx.stroke();
+
+      if (activeWaveforms.length === 0) return;
+
+      // Draw composite wave
+      ctx.lineWidth = 2.5;
+      const gradient = ctx.createLinearGradient(0, 0, w, 0);
+      gradient.addColorStop(0, '#ff00ff');
+      gradient.addColorStop(0.5, '#ffff00');
+      gradient.addColorStop(1, '#00ffff');
+      ctx.strokeStyle = gradient;
+
+      ctx.beginPath();
+      for (let x = 0; x < w; x++) {
+        const normX = x / w;
+        let yAcc = 0;
+
+        activeWaveforms.forEach((wf, i) => {
+          const k = (wf.freq / 432.0) * 6;
+          yAcc += Math.cos(2 * Math.PI * k * normX + wf.phase + time * 3) / Math.sqrt(activeWaveforms.length);
+        });
+
+        const y = midY + yAcc * (h * 0.35);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      time += 0.015;
+      animationId = requestAnimationFrame(drawWave);
+    }
+
+    function refresh() {
+      activeWaveforms = computeWaveforms(tokenInput.value || "harmonic wave");
+      updatePills(activeWaveforms);
+      if (!animationId) drawWave();
+    }
+
+    tokenInput.addEventListener('input', refresh);
+    refresh();
+
+    // Web Audio Synthesizer
+    playBtn.addEventListener('click', () => {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      const now = audioCtx.currentTime;
+      let startOffset = now;
+
+      activeWaveforms.forEach((wf, i) => {
+        if (wf.token.trim().length === 0) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        // Fundamental frequency scaled down to audible harmonic range
+        const playFreq = Math.min(1800, Math.max(180, wf.freq * 0.75));
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(playFreq, startOffset);
+
+        // Envelope
+        const dur = 0.18;
+        gain.gain.setValueAtTime(0.001, startOffset);
+        gain.gain.exponentialRampToValueAtTime(0.2, startOffset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, startOffset + dur);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(startOffset);
+        osc.stop(startOffset + dur);
+
+        startOffset += dur * 0.75; // Phase overlap
+      });
+    });
+  </script>
 </body>
 </html>

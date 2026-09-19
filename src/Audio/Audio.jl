@@ -151,13 +151,19 @@ export evaluate_algebraic_expression, compile_wave_expression, WaveVariableConte
 # WaveML Deep Learning System Exports
 using .WaveML
 export WaveML
-export WaveFieldConfig, WaveModelConfig, WaveTrainConfig, WaveAudioConfig, WaveVideoConfig, WaveMLConfig
+export WaveFieldConfig, WaveModelConfig, WaveTrainConfig, WaveAudioConfig, WaveVideoConfig, WaveMLConfig, parse_color_rgb
 export load_config, save_config, default_config
 export WaveFieldPoint, WaveField, create_field, propagate_field!, field_energy, reset_field!, evaluate_field
 export WaveLayer, create_layer, forward!, layer_energy, mutate!, crossover
 export WaveModel, model_energy, clone
 export compute_loss, energy_loss, mmd_loss, resonance_loss, interference_loss, wave_accuracy
 export EvolutionState, init_population, evaluate_population!, evolve_generation!
+export WaveForm, WaveTokenizer, default_tokenizer, build_tokenizer, tokenize, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens, to_wave_packet, encode_sequence, decode_embedding, decode_sequence_embeddings
+export WaveDataset, WaveDataLoader, from_tabular, from_text, from_image, from_timeseries, from_jev_state, num_samples
+export load_hf_dataset, hf_auth_token, hf_dataset_info
+export WaveHead, create_head, apply_head, head_loss, mutate_head!
+export generate_text, generate_image, generate_3d, jev_decide, generate_video, register_model_type!, list_model_types
+export num_layers, parameter_count, get_layer, layer_details, model_summary, inspect_model
 export TrainingMetrics, TrainingHistory, train!
 export save_model, load_model, model_to_rgb_frames, rgb_frames_to_model, model_to_visual_frames, emergent_color
 export infer, predict
