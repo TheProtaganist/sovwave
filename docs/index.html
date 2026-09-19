@@ -836,19 +836,87 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
       const chars = Array.from(text);
       const carrier = 432.0;
       const phi = 1.618033988749895;
+      
+      // Build bigram frequency table
+      const bigramFreq = new Map();
+      for (let i = 0; i < chars.length - 1; i++) {
+        const bg = chars[i] + chars[i + 1];
+        bigramFreq.set(bg, (bigramFreq.get(bg) || 0) + 1);
+      }
+      
+      // Common subwords vocabulary
+      const vocab = new Set([
+        "th", "he", "in", "er", "an", "re", "on", "at", "en", "nd", "ti", "es", "or", "te", "of",
+        "ed", "is", "it", "al", "ar", "st", "to", "nt", "ng", "se", "ha", "as", "ou", "io", "le",
+        "ve", "wa", "co", "mp", "ut", "ing", "ion", "ave", "the", "and", "for", "are", "not",
+        "wave", "computing", "harmonic"
+      ]);
+      
+      // Tokenize with FrequencyBPE
+      const tokens = [];
+      let idx = 0;
+      
+      while (idx < chars.length) {
+        let matched = false;
+        
+        // Try multi-char tokens [8, 6, 4, 2]
+        for (const len of [8, 6, 4, 2]) {
+          if (idx + len <= chars.length) {
+            const sub = chars.slice(idx, idx + len).join('');
+            const inVocab = vocab.has(sub);
+            const isFreqBigram = (len === 2 && (bigramFreq.get(sub) || 0) >= 2);
+            
+            if (inVocab || isFreqBigram) {
+              tokens.push(sub);
+              idx += len;
+              matched = true;
+              break;
+            }
+          }
+        }
+        
+        if (!matched) {
+          tokens.push(chars[idx]);
+          idx++;
+        }
+      }
+      
+      // Generate waveforms
       const res = [];
-
-      chars.forEach((c) => {
-        const u = c.codePointAt(0);
-        const inv_phi = 1.0 / phi;
-        const weyl = (u * inv_phi) % 1.0;
-        const octave_step = (u % 12) / 12.0;
-        const freq = carrier * Math.pow(phi, octave_step) * (1.0 + weyl * 0.5 + ((Math.floor(u / 12) % 1000) * 0.0002));
-        const phase = (2 * Math.PI * u * inv_phi) % (2 * Math.PI);
+      tokens.forEach((token) => {
+        // Compute composite frequency for multi-char tokens
+        let freq, phase;
+        if (token.length === 1) {
+          const u = token.codePointAt(0);
+          const inv_phi = 1.0 / phi;
+          const weyl = (u * inv_phi) % 1.0;
+          const octave_step = (u % 12) / 12.0;
+          freq = carrier * Math.pow(phi, octave_step) * (1.0 + weyl * 0.5 + ((Math.floor(u / 12) % 1000) * 0.0002));
+          phase = (2 * Math.PI * u * inv_phi) % (2 * Math.PI);
+        } else {
+          // Weighted average for multi-char
+          let totalF = 0, totalP = 0, weightSum = 0;
+          for (let i = 0; i < token.length; i++) {
+            const u = token.codePointAt(i);
+            const w = Math.pow(phi, -i);
+            const inv_phi = 1.0 / phi;
+            const weyl = (u * inv_phi) % 1.0;
+            const octave_step = (u % 12) / 12.0;
+            const f = carrier * Math.pow(phi, octave_step) * (1.0 + weyl * 0.5 + ((Math.floor(u / 12) % 1000) * 0.0002));
+            const p = (2 * Math.PI * u * inv_phi) % (2 * Math.PI);
+            totalF += w * f;
+            totalP += w * p;
+            weightSum += w;
+          }
+          freq = totalF / weightSum;
+          phase = totalP % (2 * Math.PI);
+        }
+        
         res.push({
-          token: c,
+          token: token,
           freq: Math.round(freq * 10) / 10,
-          phase: Math.round(phase * 100) / 100
+          phase: Math.round(phase * 100) / 100,
+          isMultiChar: token.length > 1
         });
       });
       return res;
@@ -859,6 +927,10 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
       waveforms.forEach(wf => {
         const div = document.createElement('div');
         div.className = 'token-pill';
+        if (wf.isMultiChar) {
+          div.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+          div.style.border = '2px solid rgba(255,255,255,0.3)';
+        }
         div.innerHTML = `<span>"${wf.token}"</span> <span class="freq">${wf.freq} Hz</span> <span class="phase">φ=${wf.phase}</span>`;
         pillsContainer.appendChild(div);
       });
