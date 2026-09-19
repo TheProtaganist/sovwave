@@ -71,11 +71,13 @@ export init_population, evaluate_population!, evolve_generation!
 export WaveForm, WaveTokenizer, default_tokenizer, build_tokenizer
 export tokenize, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens
 export to_wave_packet, encode_sequence, decode_embedding, decode_sequence_embeddings
+export unicode_wave_frequency, unicode_wave_phase, token_wave_frequency, token_wave_phase, register_token!
 
 # Public exports: Dataset
 export WaveDataset, WaveDataLoader
+export format_tabular, format_text, format_images, format_timeseries, format_jev, format_dataset
 export from_tabular, from_text, from_image, from_timeseries, from_jev_state
-export num_samples
+export num_samples, batch_size, num_batches
 
 # Public exports: HuggingFace
 export load_hf_dataset, hf_auth_token, hf_dataset_info

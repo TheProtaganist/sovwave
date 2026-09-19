@@ -11,7 +11,7 @@ module Sovwave
 
 using Base # explicit self-containment intent (empty deps; nothing but stdlib/Base)
 
-const VERSION = v"0.2.0"
+const VERSION = v"0.2.1"
 
 # --- guarded includes --------------------------------------------------------
 const _SRC_DIR = joinpath(@__DIR__)
@@ -63,6 +63,7 @@ for _rel in (
     "WaveProtocols/TestRunner.jl",
     "WaveProtocols/ProtocolLogger.jl",
     "Audio/Audio.jl",
+    "GUI/Server.jl",
 )
     _p = joinpath(_SRC_DIR, _rel)
     if isfile(_p)
@@ -83,11 +84,17 @@ export WaveModel, WaveLayer, WaveField, WaveForm, WaveTokenizer, WaveDataset, Wa
 export WaveMLConfig, WaveFieldConfig, WaveModelConfig, WaveTrainConfig, WaveAudioConfig, WaveVideoConfig
 export default_config, load_config, save_config
 export default_tokenizer, build_tokenizer, tokenize, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens, to_wave_packet, encode_sequence, decode_embedding
+export unicode_wave_frequency, unicode_wave_phase, token_wave_frequency, token_wave_phase, register_token!
+export format_tabular, format_text, format_images, format_timeseries, format_jev, format_dataset
 export from_tabular, from_text, from_image, from_timeseries, from_jev_state, num_samples, batch_size, num_batches
 export load_hf_dataset, hf_auth_token, hf_dataset_info
 export generate_text, generate_image, generate_3d, jev_decide, generate_video
 export inspect_model, model_summary, parameter_count, num_layers, get_layer, layer_details
 export save_model, load_model, infer, predict, train!, sonify_model, save_wav
+
+# Visual GUI Server
+using .GUI
+export launch_gui, stop_gui!
 
 # Backwards compatibility alias
 const Aetheria = Sovwave

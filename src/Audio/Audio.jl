@@ -159,7 +159,8 @@ export WaveModel, model_energy, clone
 export compute_loss, energy_loss, mmd_loss, resonance_loss, interference_loss, wave_accuracy
 export EvolutionState, init_population, evaluate_population!, evolve_generation!
 export WaveForm, WaveTokenizer, default_tokenizer, build_tokenizer, tokenize, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens, to_wave_packet, encode_sequence, decode_embedding, decode_sequence_embeddings
-export WaveDataset, WaveDataLoader, from_tabular, from_text, from_image, from_timeseries, from_jev_state, num_samples
+export unicode_wave_frequency, unicode_wave_phase, token_wave_frequency, token_wave_phase, register_token!
+export WaveDataset, WaveDataLoader, format_tabular, format_text, format_images, format_timeseries, format_jev, format_dataset, from_tabular, from_text, from_image, from_timeseries, from_jev_state, num_samples, batch_size, num_batches
 export load_hf_dataset, hf_auth_token, hf_dataset_info
 export WaveHead, create_head, apply_head, head_loss, mutate_head!
 export generate_text, generate_image, generate_3d, jev_decide, generate_video, register_model_type!, list_model_types

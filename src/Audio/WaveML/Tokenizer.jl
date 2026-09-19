@@ -26,6 +26,7 @@ using LinearAlgebra
 export WaveForm, WaveTokenizer, default_tokenizer, build_tokenizer
 export tokenize, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens
 export to_wave_packet, encode_sequence, decode_embedding, decode_sequence_embeddings
+export unicode_wave_frequency, unicode_wave_phase, token_wave_frequency, token_wave_phase, register_token!
 
 """
     WaveForm
@@ -60,9 +61,77 @@ function Base.show(io::IO, wf::WaveForm)
 end
 
 """
+    unicode_wave_frequency(c::Char; carrier_frequency::Float64 = 432.0, beta_s::Float64 = 1.618033988749895)::Float64
+
+Computes the physical harmonic carrier frequency for any Unicode character (U+0000 to U+10FFFF)
+using a golden-ratio continuous Weyl mapping. Every character has a mathematically unique, deterministic frequency.
+"""
+function unicode_wave_frequency(c::Char; carrier_frequency::Float64 = 432.0, beta_s::Float64 = 1.618033988749895)::Float64
+    u = UInt32(c)
+    inv_phi = 1.0 / beta_s
+    weyl = mod(Float64(u) * inv_phi, 1.0)
+    octave_step = Float64(u % 12) / 12.0
+    f = carrier_frequency * (beta_s ^ octave_step) * (1.0 + weyl * 0.5 + Float64(div(u, 12) % 1000) * 0.0002)
+    return f
+end
+
+"""
+    unicode_wave_phase(c::Char; beta_s::Float64 = 1.618033988749895)::Float64
+
+Computes the continuous circular phase angle in [0, 2π) for any Unicode character.
+"""
+function unicode_wave_phase(c::Char; beta_s::Float64 = 1.618033988749895)::Float64
+    u = UInt32(c)
+    inv_phi = 1.0 / beta_s
+    return mod(2π * Float64(u) * inv_phi, 2π)
+end
+
+"""
+    token_wave_frequency(s::String; carrier_frequency::Float64 = 432.0, beta_s::Float64 = 1.618033988749895)::Float64
+
+Computes the composite harmonic frequency for any token or subword across its Unicode graphemes.
+"""
+function token_wave_frequency(s::String; carrier_frequency::Float64 = 432.0, beta_s::Float64 = 1.618033988749895)::Float64
+    chars = collect(s)
+    if isempty(chars)
+        return carrier_frequency
+    elseif length(chars) == 1
+        return unicode_wave_frequency(chars[1]; carrier_frequency=carrier_frequency, beta_s=beta_s)
+    end
+    total_f = 0.0
+    weight_sum = 0.0
+    for (i, c) in enumerate(chars)
+        w = beta_s ^ (-Float64(i - 1))
+        total_f += w * unicode_wave_frequency(c; carrier_frequency=carrier_frequency, beta_s=beta_s)
+        weight_sum += w
+    end
+    return total_f / weight_sum
+end
+
+"""
+    token_wave_phase(s::String; beta_s::Float64 = 1.618033988749895)::Float64
+
+Computes the continuous phase angle for any token or subword.
+"""
+function token_wave_phase(s::String; beta_s::Float64 = 1.618033988749895)::Float64
+    chars = collect(s)
+    if isempty(chars)
+        return 0.0
+    elseif length(chars) == 1
+        return unicode_wave_phase(chars[1]; beta_s=beta_s)
+    end
+    ph = 0.0
+    for (i, c) in enumerate(chars)
+        ph += unicode_wave_phase(c; beta_s=beta_s) * (beta_s ^ (-Float64(i - 1)))
+    end
+    return mod(ph, 2π)
+end
+
+"""
     WaveTokenizer
 
 Continuous harmonic wave tokenizer struct.
+All Unicode characters, emojis, and world language scripts are first-class harmonic primitives.
 """
 struct WaveTokenizer
     vocab::Dict{String, Int}
@@ -72,6 +141,7 @@ struct WaveTokenizer
     special_tokens::Dict{Symbol, Int}
     carrier_frequency::Float64
     beta_s::Float64
+    lock::ReentrantLock
 
     function WaveTokenizer(
         vocab::Dict{String, Int},
@@ -83,12 +153,11 @@ struct WaveTokenizer
         freqs = Vector{Float64}(undef, V)
         phs = Vector{Float64}(undef, V)
 
-        # Generate golden-ratio harmonic frequency and circular phase per token
+        # Generate harmonic frequency and circular phase per token using Unicode-aware harmonic mapping
         for k in 1:V
-            # Scale frequency across harmonic octaves using golden ratio intervals
-            octave_step = Float64((k - 1) % 12) / 12.0
-            freqs[k] = carrier_frequency * (beta_s ^ octave_step) * (1.0 + Float64(div(k - 1, 12)) * 0.05)
-            phs[k] = mod(2π * Float64(k - 1) / Float64(max(1, V)), 2π)
+            tok_str = inv_vocab[k]
+            freqs[k] = token_wave_frequency(tok_str; carrier_frequency=carrier_frequency, beta_s=beta_s)
+            phs[k] = token_wave_phase(tok_str; beta_s=beta_s)
         end
 
         specials = Dict{Symbol, Int}(
@@ -100,7 +169,30 @@ struct WaveTokenizer
             :MASK => get(vocab, "<MASK>", 6)
         )
 
-        new(vocab, inv_vocab, freqs, phs, specials, carrier_frequency, beta_s)
+        new(vocab, inv_vocab, freqs, phs, specials, carrier_frequency, beta_s, ReentrantLock())
+    end
+end
+
+"""
+    register_token!(tok::WaveTokenizer, s::String)::Int
+
+Dynamically registers a novel character, emoji, or subword as a first-class native wave token.
+Computes its deterministic physical frequency and phase and inserts it into the active vocabulary.
+Ensures zero data loss, zero unknown tokens (<UNK>), and 100% exact bidirectional reconstruction.
+"""
+function register_token!(tok::WaveTokenizer, s::String)::Int
+    lock(tok.lock) do
+        if haskey(tok.vocab, s)
+            return tok.vocab[s]
+        end
+        new_id = length(tok.inv_vocab) + 1
+        tok.vocab[s] = new_id
+        push!(tok.inv_vocab, s)
+        freq = token_wave_frequency(s; carrier_frequency=tok.carrier_frequency, beta_s=tok.beta_s)
+        ph = token_wave_phase(s; beta_s=tok.beta_s)
+        push!(tok.frequencies, freq)
+        push!(tok.phases, ph)
+        return new_id
     end
 end
 
@@ -110,16 +202,100 @@ end
 Returns the standard universal Wave Tokenizer equipped with:
 - Standard special tokens (<PAD>, <UNK>, <BOS>, <EOS>, <SEP>, <MASK>)
 - All standard ASCII printable characters and whitespace
+- Latin Extended / Accented characters (Spanish, French, German, Scandinavian, etc.)
+- Greek, Cyrillic, Arabic, Hebrew, Devanagari (Hindi), CJK, Japanese, and Korean alphabets
+- Sacred Geometry, Mathematical & Physics symbols (∂, ∇, ∫, ∑, ℏ, ψ, Φ, π, etc.)
+- Universal Emojis (🌊, 🧠, ⚡, 🚀, ⚛️, 🔮, 🎵, 🎶, 🔊, 🌐, 🌌, ✨, 🌟, 💡, 🔥, etc.)
 - Common subwords, punctuation, and digits
 """
 function default_tokenizer(; carrier_frequency::Float64 = 432.0)::WaveTokenizer
     specials = ["<PAD>", "<UNK>", "<BOS>", "<EOS>", "<SEP>", "<MASK>"]
     
-    # Printable ASCII characters (space through ~)
+    # Printable ASCII characters (space through ~) plus whitespace
     ascii_chars = [string(Char(c)) for c in 32:126]
-    
-    # Common mathematical & programming symbols
-    math_symbols = ["\n", "\t", "==", "!=", "<=", ">=", "->", "=>", "+=", "-=", "*=", "/=", "::", "...", "/*", "*/"]
+    whitespace = ["\n", "\t", "\r", " "]
+
+    # Extended Latin & accented characters
+    latin_ext = [
+        "á", "é", "í", "ó", "ú", "à", "è", "ì", "ò", "ù", "ä", "ö", "ü", "ñ", "ç", "ß",
+        "ø", "å", "æ", "œ", "Á", "É", "Í", "Ó", "Ú", "À", "È", "Ì", "Ò", "Ù", "Ä", "Ö",
+        "Ü", "Ñ", "Ç", "Ø", "Å", "Æ", "Œ", "ã", "õ", "â", "ê", "î", "ô", "û", "ě", "š",
+        "č", "ř", "ž", "ý", "ť", "ď", "ň", "ů"
+    ]
+
+    # Greek alphabet
+    greek = [
+        "α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ", "λ", "μ", "ν", "ξ", "ο", "π",
+        "ρ", "σ", "τ", "υ", "φ", "χ", "ψ", "ω", "Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ",
+        "Ι", "Κ", "Λ", "Μ", "Ν", "Ξ", "Ο", "Π", "Ρ", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω"
+    ]
+
+    # Cyrillic alphabet
+    cyrillic = [
+        "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к", "л", "м", "н", "о",
+        "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ы", "ь", "э", "ю",
+        "я", "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н",
+        "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ы", "Ь", "Э", "Ю", "Я"
+    ]
+
+    # Arabic alphabet
+    arabic = [
+        "ا", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز", "س", "ش", "ص", "ض", "ط",
+        "ظ", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "ه", "و", "ي", "ء", "آ", "ة", "ى", "ئ", "ؤ"
+    ]
+
+    # Hebrew alphabet
+    hebrew = [
+        "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע",
+        "פ", "צ", "ק", "ר", "ש", "ת", "ך", "ם", "ן", "ף", "ץ"
+    ]
+
+    # Devanagari (Hindi)
+    devanagari = [
+        "अ", "आ", "इ", "ई", "उ", "ऊ", "ऋ", "ए", "ऐ", "ओ", "औ", "क", "ख", "ग", "घ", "ङ",
+        "च", "छ", "ज", "झ", "ञ", "ट", "ठ", "ड", "ढ", "ण", "त", "थ", "द", "ध", "न", "प",
+        "फ", "ब", "भ", "म", "य", "र", "ल", "व", "श", "ष", "स", "ह", "ा", "ि", "ी", "ु",
+        "ू", "ृ", "े", "ै", "ो", "ौ", "्", "ं", "ः"
+    ]
+
+    # CJK Common Characters
+    cjk = [
+        "中", "文", "国", "人", "大", "小", "日", "月", "水", "火", "木", "金", "土", "天", "地",
+        "道", "心", "気", "和", "平", "愛", "智", "慧", "波", "脳", "量", "子", "生", "命", "宇",
+        "宙", "象", "意", "識", "力", "光", "音", "楽", "学", "校", "山", "海", "川", "花", "鳥",
+        "風", "雲", "雷", "電", "神", "仏", "微", "分", "積", "極"
+    ]
+
+    # Japanese Hiragana & Katakana
+    japanese = [
+        "あ", "い", "う", "え", "お", "か", "き", "く", "け", "こ", "さ", "し", "す", "せ", "そ",
+        "た", "ち", "つ", "て", "と", "な", "に", "ぬ", "ね", "の", "は", "ひ", "ふ", "へ", "ほ",
+        "ま", "み", "む", "め", "も", "や", "ゆ", "よ", "ら", "り", "る", "れ", "ろ", "わ", "を", "ん",
+        "ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク", "ケ", "コ", "サ", "シ", "ス", "セ", "ソ",
+        "タ", "チ", "ツ", "テ", "ト", "ナ", "ニ", "ヌ", "ネ", "ノ", "ハ", "ヒ", "フ", "ヘ", "ホ",
+        "マ", "ミ", "ム", "メ", "モ", "ヤ", "ユ", "ヨ", "ラ", "リ", "ル", "レ", "ロ", "ワ", "ヲ", "ン"
+    ]
+
+    # Korean Hangul
+    korean = [
+        "가", "나", "다", "라", "마", "바", "사", "아", "자", "차", "카", "타", "파", "하",
+        "한", "글", "파", "동", "인", "공", "지", "능", "양", "자", "물", "리", "세", "계", "우", "주"
+    ]
+
+    # Sacred Geometry, Mathematical & Physics symbols
+    math_symbols = [
+        "==", "!=", "<=", ">=", "->", "=>", "+=", "-=", "*=", "/=", "::", "...", "/*", "*/",
+        "∂", "∇", "∫", "∬", "∭", "∮", "∑", "∏", "√", "∛", "∞", "∝", "∠", "∧", "∨", "∩", "∪",
+        "≈", "≠", "≡", "≤", "≥", "≪", "≫", "±", "∓", "×", "÷", "⊕", "⊗", "⊙", "⊥", "⊤", "⊢",
+        "⊨", "∴", "∵", "ℏ", "ψ", "Ψ", "λ", "ω", "Ω", "π", "Φ", "φ", "ϵ", "ϕ", "→", "←", "↑", "↓"
+    ]
+
+    # Universal Emojis (First-Class Wave Primitives)
+    emojis = [
+        "🌊", "🧠", "⚡", "🚀", "⚛️", "🔮", "🎵", "🎶", "🔊", "🌐", "🌌", "✨", "🌟", "💡",
+        "🔥", "🌈", "🛠️", "📊", "🎯", "🤖", "💻", "🧬", "🛡️", "🕊️", "🪐", "☀️", "🌙", "⭐",
+        "❤️", "💎", "🔔", "👁️", "🌀", "🎨", "🧪", "📡", "🔋", "🔑", "🏆", "🥇"
+    ]
     
     # Common English word fragments & subwords
     common_subwords = [
@@ -132,7 +308,7 @@ function default_tokenizer(; carrier_frequency::Float64 = 432.0)::WaveTokenizer
         "data", "true", "false", "loss", "model", "layer", "input", "state", "train", "infer"
     ]
 
-    all_tokens = unique(vcat(specials, ascii_chars, math_symbols, common_subwords))
+    all_tokens = unique(vcat(specials, ascii_chars, whitespace, latin_ext, greek, cyrillic, arabic, hebrew, devanagari, cjk, japanese, korean, math_symbols, emojis, common_subwords))
     vocab = Dict{String, Int}(tok => idx for (idx, tok) in enumerate(all_tokens))
     inv_vocab = all_tokens
 
@@ -234,21 +410,23 @@ end
 """
     tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
 
-Internal greedy subword matcher returning vocabulary indices.
+Greedy subword and universal Unicode character matcher returning vocabulary indices.
+Every character and emoji is a first-class native wave token; novel tokens are registered
+dynamically with zero <UNK> data loss.
 """
 function tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
     isempty(text) && return Int[]
     tokens = Int[]
-    unk_id = tok.special_tokens[:UNK]
 
-    idx = 1
     chars = collect(text)
     n_chars = length(chars)
+    idx = 1
 
     while idx <= n_chars
         matched = false
         max_lookahead = min(16, n_chars - idx + 1)
-        for len in max_lookahead:-1:1
+        # Try multi-character subwords first (length >= 2)
+        for len in max_lookahead:-1:2
             sub = String(chars[idx:(idx + len - 1)])
             if haskey(tok.vocab, sub)
                 push!(tokens, tok.vocab[sub])
@@ -259,7 +437,10 @@ function tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
         end
 
         if !matched
-            push!(tokens, unk_id)
+            # Single character (any UTF-8 character, script, or emoji): first-class native registration
+            ch_str = String([chars[idx]])
+            id = register_token!(tok, ch_str)
+            push!(tokens, id)
             idx += 1
         end
     end

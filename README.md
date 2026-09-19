@@ -1,4 +1,4 @@
-# 🌊 Sovwave.jl (v0.2.0)
+# 🌊 Sovwave.jl (v0.2.1)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Julia](https://img.shields.io/badge/Julia-1.9%2B-blue.svg)](https://julialang.org)
@@ -16,23 +16,24 @@
 ## 📖 Table of Contents
 1. [Overview & Philosophy](#-overview--philosophy)
 2. [Direct Installation via Julia Pkg](#-direct-installation-via-julia-pkg)
-3. [Competitor Comparison Matrix (Sovwave vs PyTorch, JAX, NumPy, Flux)](#-competitor-comparison-matrix)
-4. [Continuous Harmonic Wave Tokenizer (WaveForm Architecture)](#-continuous-harmonic-wave-tokenizer)
-5. [Multi-Modal Dataset Formatting & DataLoaders](#-multi-modal-dataset-formatting--dataloaders)
-6. [Native Hugging Face Hub Integration](#-native-hugging-face-hub-integration)
-7. [The 5 Native Model Architectures](#-the-5-native-model-architectures)
+3. [Local Visual Quantum GUI](#-local-visual-quantum-gui)
+4. [Competitor Comparison Matrix (Sovwave vs PyTorch, JAX, NumPy, Flux)](#-competitor-comparison-matrix)
+5. [Universal Multilingual & Emoji Wave Tokenizer](#-universal-multilingual--emoji-wave-tokenizer)
+6. [Complete Step-by-Step Training Guide](#-complete-step-by-step-training-guide)
+7. [Multi-Modal Dataset Formatting & DataLoaders](#-multi-modal-dataset-formatting--dataloaders)
+8. [Native Hugging Face Hub Integration](#-native-hugging-face-hub-integration)
+9. [The 5 Native Model Architectures](#-the-5-native-model-architectures)
    - [1. LLM (:llm) — Autoregressive Harmonic Wave Language Model](#1-wave-large-language-model-llm)
    - [2. Image Generation (:image_generation) — 2D Surface De-interference](#2-wave-image-generator-image_generation)
    - [3. Text-to-3D (:text_to_3d) — Volumetric Radiance Fields](#3-wave-text-to-3d-text_to_3d)
    - [4. Jev Decision Engine (:jev) — Hallucination-Immune Decisions](#4-jev-decision-engine-jev)
    - [5. Text-to-Video (:text_to_video) — Spatio-Temporal Wave Dynamics](#5-wave-text-to-video-text_to_video)
-8. [Model Reading & Introspection API](#-model-reading--introspection-api)
-9. [Emergent Video Model Serialization (.mkv & .mp4)](#-emergent-video-model-serialization)
-10. [Trained Lattice Audio Sonification](#-trained-lattice-audio-sonification)
-11. [7x144 Evolutionary Tournament Grand Champions](#-7x144-evolutionary-tournament-grand-champions)
-12. [Quick Start & Code Examples](#-quick-start--code-examples)
-13. [Documentation & GitHub Pages](#-documentation--github-pages)
-14. [License](#-license)
+10. [Model Reading & Introspection API](#-model-reading--introspection-api)
+11. [Emergent Video Model Serialization (.mkv & .mp4)](#-emergent-video-model-serialization)
+12. [Trained Lattice Audio Sonification](#-trained-lattice-audio-sonification)
+13. [7x144 Evolutionary Tournament Grand Champions](#-7x144-evolutionary-tournament-grand-champions)
+14. [Documentation & GitHub Pages](#-documentation--github-pages)
+15. [License](#-license)
 
 ---
 
@@ -67,6 +68,26 @@ Requires **Julia 1.9+**. Pure standard Julia stdlib + YAML dependency — zero h
 
 ---
 
+## 🖥️ Local Visual Quantum GUI
+
+Launch the built-in browser interface locally with zero external web dependencies (pure Julia stdlib `Sockets`):
+
+```julia
+using Sovwave
+
+# Launches local web GUI at http://127.0.0.1:8080
+launch_gui(port=8080, open_browser=true)
+```
+
+Features:
+- **Live Quantum Lattice**: Real-time HTML5 Canvas visualizer rendering wave amplitude \(\psi(x, y)\) and Potts q-states.
+- **Potts State Domain Colors**: Configurable 3-state domain colors (defaults: `state 0 -> #FF00FF` Magenta, `state 1 -> #FFFF00` Yellow, `state 2 -> #00FFFF` Cyan).
+- **Universal Multilingual Tokenizer**: Interactive sound synthesis testing multilingual sentences and emojis through browser speakers via Web Audio API.
+- **5-Model Playground**: Interactive prompt execution for LLM, 2D Image Gen, 3D Radiance Fields, Jev Decision Engine, and MKV Video frames.
+- **YAML Config Manager**: Live parameter editing and export for `model_config.yaml`.
+
+---
+
 ## ⚔️ Competitor Comparison Matrix
 
 | Feature | Sovwave.jl | PyTorch | JAX | NumPy | Flux.jl |
@@ -82,61 +103,73 @@ Requires **Julia 1.9+**. Pure standard Julia stdlib + YAML dependency — zero h
 
 ---
 
-## 🎵 Continuous Harmonic Wave Tokenizer
+## 🌊 Universal Multilingual & Emoji Wave Tokenizer
 
-Unlike traditional discrete tokenizers that assign arbitrary integer IDs (`"hello" -> 1432`), Sovwave's **WaveTokenizer** projects text into continuous **physical `WaveForm` packets**:
+Unlike traditional discrete tokenizers that assign arbitrary integer IDs (`"hello" -> 1432`) or drop unknown characters as `<UNK>`, Sovwave's **WaveTokenizer** maps every character and emoji natively as a **first-class continuous harmonic wave primitive**:
 
 $$\psi_k(t) = \left[ \cos(2\pi f_k t + \phi_k) + \sum_{m} A_m \cos(2\pi f_m t + \phi_m) \right] \cdot \exp(-t / \tau)$$
 
 Every token is an acoustic waveform:
-- **Resonant Carrier Frequency** $f_k \in [432 \text{ Hz}, 8 \text{ kHz}]$ computed via golden ratio intervals ($\Phi \approx 1.618$).
-- **Circular Phase** $\phi_k \in [0, 2\pi)$ assigned on the unit circle.
+- **Resonant Carrier Frequency** $f(u) \in [432 \text{ Hz}, 8 \text{ kHz}]$ computed via golden ratio Weyl mapping for code point $u = \text{UInt32}(c)$.
+- **Circular Phase** $\phi(u) \in [0, 2\pi)$ assigned on the unit circle.
+- **Zero UNK Data Loss**: Novel characters or emojis dynamically register as first-class native wave tokens. No byte-level degradation or shortcuts.
 - **Continuous Sound Wave Buffer** $\psi(t)$: real audio samples that can be listened to directly.
-- **Harmonic Overtones**: 2nd octave, 5th harmonic, and golden overtone.
+- **100% Lossless Bidirectional Reconstruction**: `decode(tok, tokenize(tok, str)) == str` for all world languages (Arabic, Chinese, Japanese, Korean, Hindi, Hebrew, Cyrillic, Greek, Latin extended) and emojis (`🌊`, `🧠`, `⚡`, `🚀`, `⚛️`, etc.).
 
 ```julia
 using Sovwave
 
 tok = default_tokenizer()
 
-# Tokenize text into physical WaveForms
-waveforms = tokenize(tok, "harmonic wave computing")
+# Multilingual & Emoji input
+s = "Sovwave 🌊 🧠 ⚡ 🚀 ⚛️: Quantum in 中文, 日本語, 한국어, العربية, हिन्दी, Русский"
 
-# Inspect the continuous waveform properties
-wf = waveforms[1]
-println("Token: ", wf.token)           # "ha"
-println("Frequency: ", wf.frequency)   # 999.94 Hz
-println("Phase: ", wf.phase)           # 4.228 rad
-println("Sound samples: ", wf.samples) # Vector of continuous acoustic values
+# Tokenize into continuous physical WaveForms
+waveforms = tokenize(tok, s)
+
+# Loss-free exact round-trip reconstruction (Zero <UNK>)
+@assert decode(tok, waveforms) == s
 
 # Synthesize continuous sound audio buffer
 audio_buffer = to_audio(waveforms; sample_rate=48000.0)
 
 # Export as a real playable WAV audio file
-sonify_tokens(tok, "harmonic wave computing", path="tokens.wav")
-
-# Resonant decoding back to text
-text = decode(tok, waveforms)
+sonify_tokens(tok, s, path="multilingual_wave.wav")
 ```
 
 ---
 
-## 📊 Multi-Modal Dataset Formatting & DataLoaders
+## 🧠 Complete Step-by-Step Training Guide
 
-Sovwave provides a universal data preparation engine converting real-world modalities into continuous harmonic wave fields:
+Train continuous wave models in Julia without backpropagation or CUDA:
 
 ```julia
 using Sovwave
 
-# 1. Tabular / Numerical data (samples × features)
-X = rand(100, 8)
-y = rand(100)
-ds_tab = from_tabular(X, y; task=:regression, embed_dim=32)
+# 1. Format Multi-Modal Dataset
+texts = ["Harmonic wave intelligence 🌊", "自己組織化真空 ⚛️", "ذكاء كوانتي موجي ⚡"]
+labels = [1, 2, 3]
+ds = format_text(texts, labels; max_len=16, embed_dim=32)
 
-# 2. Text data
-texts = ["quantum harmonic computing", "morphogenetic wave field"]
-labels = [1, 2]
-ds_txt = from_text(texts, labels; embed_dim=32)
+# 2. Configure Wave Model
+cfg = WaveMLConfig(
+    field = WaveFieldConfig(lattice_size=(32, 32), omega=432.0, beta_s=1.618),
+    model = WaveModelConfig(layers=4, embed_dims=32),
+    train = WaveTrainConfig(population_size=12, mutation_rate=0.05, generations=50)
+)
+model = WaveModel(cfg)
+
+# 3. Train via Evolutionary Thermodynamic Ground-State Descent
+history = train!(model, ds; generations=25, verbose=true)
+
+# 4. Generate & Infer Across Architectures
+tok = default_tokenizer()
+text_out = generate_text(model, tok, "Universal wave"; max_new_tokens=16)
+
+# 5. Serialize Model Losslessly to Matroska Video
+save_model(model, "quantum_model.mkv")
+loaded = load_model("quantum_model.mkv")
+```
 
 # 3. 2D Image matrices
 imgs = [rand(16, 16) for _ in 1:10]

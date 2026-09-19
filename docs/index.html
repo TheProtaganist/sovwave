@@ -383,6 +383,8 @@
       </a>
       <ul class="nav-links">
         <li><a href="#quickstart">Install</a></li>
+        <li><a href="#gui">Visual GUI</a></li>
+        <li><a href="#training-guide">Training Guide</a></li>
         <li><a href="#tokenizer">Wave Tokenizer</a></li>
         <li><a href="#competitors">Competitors</a></li>
         <li><a href="#architectures">5 Architectures</a></li>
@@ -398,7 +400,7 @@
     <div class="container">
       <!-- Hero -->
       <section class="hero">
-        <div class="badge-pill">v0.2.0 • Pure Wave Computing Framework</div>
+        <div class="badge-pill">v0.2.1 • Official Julia Wave Intelligence Library</div>
         <h1>Harmonic Wave Intelligence<br><span>Without Matrix Multiplications</span></h1>
         <p>
           Sovwave replaces discrete token arrays, binary neural matrices, and Markov chain approximations
@@ -406,7 +408,8 @@
         </p>
         <div class="hero-actions">
           <a href="#quickstart" class="btn btn-primary">⚡ Quick Install</a>
-          <a href="#tokenizer" class="btn btn-secondary">🎵 Try Wave Tokenizer</a>
+          <a href="#gui" class="btn btn-secondary">🖥️ Visual GUI Interface</a>
+          <a href="#training-guide" class="btn btn-secondary">📖 How to Train Models</a>
           <a href="https://github.com/TheProtaganist/sovwave" target="_blank" class="btn btn-secondary">⭐ Star on GitHub</a>
         </div>
       </section>
@@ -414,12 +417,153 @@
       <!-- Installation -->
       <section id="quickstart" style="margin-bottom: 4rem;">
         <h2 class="section-title">📦 Frictionless Pkg Installation</h2>
-        <p class="section-desc">Install directly into any Julia 1.9+ environment with zero GPU drivers or C-bindings required:</p>
+        <p class="section-desc">Install directly into any Julia 1.9+ environment with zero GPU drivers, CUDA, or heavy C-bindings required:</p>
         <pre><code>using Pkg
 Pkg.add(url="https://github.com/TheProtaganist/sovwave.git")
 
-# Load Sovwave & pure wave computing
+# Load Sovwave
 using Sovwave</code></pre>
+      </section>
+
+      <!-- Local Visual GUI Section -->
+      <section id="gui" style="margin-bottom: 4rem;">
+        <h2 class="section-title">🖥️ Local Visual Quantum GUI</h2>
+        <p class="section-desc">
+          Sovwave comes with a built-in interactive browser GUI powered by Julia's standard library Sockets.
+          Monitor continuous quantum wave lattices in real-time, inspect Potts q-states, run interactive training loops,
+          and sonify tokenized text into audible acoustic waves.
+        </p>
+
+        <pre><code>using Sovwave
+
+# Launch the visual GUI at http://127.0.0.1:8080
+launch_gui(port=8080, open_browser=true)</code></pre>
+
+        <div class="grid-3" style="margin-top: 1.5rem;">
+          <div class="card">
+            <h3>⚛️ Live Quantum Lattice</h3>
+            <p>
+              Interactive HTML5 Canvas visualizer showing real-time wave amplitude ripple \(\psi(x, y)\) and phase vectors across the continuous manifold.
+              Supports customizable Potts 3-phase domain state colors (default: <code>state 0 -> #FF00FF</code> Magenta, <code>state 1 -> #FFFF00</code> Yellow, <code>state 2 -> #00FFFF</code> Cyan).
+            </p>
+          </div>
+          <div class="card">
+            <h3>🌊 Multilingual Wave Sound Engine</h3>
+            <p>
+              Type text, emojis (<code>🌊🧠⚡🚀⚛️</code>), or any world language (Arabic, Chinese, Japanese, Korean, Hindi, Cyrillic, Hebrew, Greek).
+              Experience physical wave packets played as sound directly through browser speakers via the Web Audio API.
+            </p>
+          </div>
+          <div class="card">
+            <h3>⚙️ YAML Configuration Manager</h3>
+            <p>
+              Visual parameter management for lattice dimensions, embedding depth, population size, mutation rates, and Potts state colors.
+              Directly import, export, and hot-reload <code>model_config.yaml</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Complete Training & Model Guide -->
+      <section id="training-guide" style="margin-bottom: 4rem;">
+        <h2 class="section-title">🧠 Complete Guide: Training & Building Models in Sovwave</h2>
+        <p class="section-desc">
+          A step-by-step walkthrough for constructing multi-modal wave models, formatting datasets, evolving parameters via energy descent, and serializing models as Matroska video containers.
+        </p>
+
+        <div class="card" style="margin-bottom: 1.5rem;">
+          <h3>Step 1: Universal Dataset Formatting (Tabular, Text, Image, Audio, 3D)</h3>
+          <p>
+            Unlike PyTorch or TensorFlow which mandate discrete tensor matrices, Sovwave projects arbitrary data into continuous wave harmonic embeddings:
+          </p>
+          <pre><code>using Sovwave
+
+# Natural Language / Multilingual Text
+texts = ["Quantum harmonic wave computing 🌊", "自己組織化真空と調和波形 ⚛️", "ذكاء اصطناعي موجي ⚡"]
+labels = [1, 2, 3]
+ds_text = format_text(texts, labels; max_len=16, embed_dim=32)
+
+# Tabular Numerical Data (Matrix -> Continuous Wave Manifold)
+X = rand(100, 8)
+y = rand(1:3, 100)
+ds_tab = format_tabular(X, y; embed_dim=32)
+
+# Batched DataLoader with Shuffling
+loader = WaveDataLoader(ds_text; batch_size=16, shuffle=true)</code></pre>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.5rem;">
+          <h3>Step 2: Model Configuration & Instantiation</h3>
+          <p>
+            Define lattice resolution, carrier driving frequency (\(\omega = 432.0\text{ Hz}\)), golden ratio scaling (\(\beta_s \approx 1.618\)), and layer topology:
+          </p>
+          <pre><code># Create custom configuration
+cfg = WaveMLConfig(
+    field = WaveFieldConfig(lattice_size=(32, 32), omega=432.0, beta_s=1.618),
+    model = WaveModelConfig(layers=4, embed_dims=32),
+    train = WaveTrainConfig(population_size=12, mutation_rate=0.05, generations=50)
+)
+
+# Instantiate pure wave neural model
+model = WaveModel(cfg)
+
+# Inspect model architecture and continuous parameter count
+summary = inspect_model(model)
+println("Total Continuous Parameters: ", summary.total_parameters)
+println("Total Model Layers: ", summary.num_layers)</code></pre>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.5rem;">
+          <h3>Step 3: Evolutionary Ground-State Optimization (train!)</h3>
+          <p>
+            Train without backpropagation or CUDA matmuls. Sovwave explores the Hamiltonian phase space to minimize continuous wave loss and find the global energy ground state:
+          </p>
+          <pre><code># Train the wave model over the dataset
+history = train!(model, ds_text; generations=25, verbose=true)
+
+# Access training trajectory
+println("Initial Ground Loss: ", history.losses[1])
+println("Final Converged Loss: ", history.losses[end])
+println("Final Accuracy: ", history.accuracies[end] * 100.0, "%")</code></pre>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.5rem;">
+          <h3>Step 4: Inference & Generation Across the 5 Architectures</h3>
+          <p>
+            Generate text, de-interfere 2D images, synthesize 3D radiance fields, or evaluate hallucination-free type-safe decisions:
+          </p>
+          <pre><code>tok = default_tokenizer()
+
+# 1. Autoregressive Wave Text Generation
+output_text = generate_text(model, tok, "Universal consciousness 🌊"; max_new_tokens=16)
+
+# 2. Continuous 2D Image Synthesis
+image_matrix = generate_image(model, "emergent wave crystal"; height=32, width=32)
+
+# 3. 3D Volumetric Radiance Field Synthesis (x, y, z) -> (σ, RGB)
+vol_3d = generate_3d(model, "toroidal vortex"; resolution=16)
+
+# 4. Jev Decision Engine (Hallucination-Free Structured Decision)
+state = Dict("entropy" => 0.12, "coherence" => 0.98, "active_nodes" => 64)
+questions = ["Is lattice coherent?", "Requires energy dump?"]
+decisions = jev_decide(model, state, questions)
+
+# 5. Spatio-Temporal Video Generation
+generate_video(model, "quantum ripple", "ripple.mkv"; frames=24, fps=6)</code></pre>
+        </div>
+
+        <div class="card">
+          <h3>Step 5: Lossless Matroska Video Model Serialization (.mkv / .mp4)</h3>
+          <p>
+            Models are serialized losslessly as video files where each frame pixel encodes an evolved continuous wave parameter:
+          </p>
+          <pre><code># Save model to lossless MKV video container
+save_model(model, "quantum_model.mkv")
+
+# Load model directly from video container for instant inference
+loaded_model = load_model("quantum_model.mkv")
+predictions = predict(loaded_model, ds_text.inputs[1])</code></pre>
+        </div>
       </section>
 
       <!-- Competitor Matrix -->
@@ -684,21 +828,20 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
     let audioCtx = null;
 
     function computeWaveforms(text) {
-      const words = text.split(/(\s+)/).filter(w => w.length > 0);
+      const chars = Array.from(text);
       const carrier = 432.0;
-      const phi = 1.6180339887;
+      const phi = 1.618033988749895;
       const res = [];
 
-      words.forEach((tok, idx) => {
-        let hash = 0;
-        for (let i = 0; i < tok.length; i++) {
-          hash = (hash * 31 + tok.charCodeAt(i)) % 10000;
-        }
-        const octave = (hash % 12) / 12.0;
-        const freq = carrier * Math.pow(phi, octave) * (1.0 + Math.floor(hash / 1000) * 0.05);
-        const phase = (2 * Math.PI * (hash % 360)) / 360;
+      chars.forEach((c) => {
+        const u = c.codePointAt(0);
+        const inv_phi = 1.0 / phi;
+        const weyl = (u * inv_phi) % 1.0;
+        const octave_step = (u % 12) / 12.0;
+        const freq = carrier * Math.pow(phi, octave_step) * (1.0 + weyl * 0.5 + ((Math.floor(u / 12) % 1000) * 0.0002));
+        const phase = (2 * Math.PI * u * inv_phi) % (2 * Math.PI);
         res.push({
-          token: tok,
+          token: c,
           freq: Math.round(freq * 10) / 10,
           phase: Math.round(phase * 100) / 100
         });
