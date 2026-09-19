@@ -844,12 +844,12 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
         bigramFreq.set(bg, (bigramFreq.get(bg) || 0) + 1);
       }
       
-      // Common subwords vocabulary
+      // Common subwords vocabulary (2-3 char subwords only)
       const vocab = new Set([
         "th", "he", "in", "er", "an", "re", "on", "at", "en", "nd", "ti", "es", "or", "te", "of",
         "ed", "is", "it", "al", "ar", "st", "to", "nt", "ng", "se", "ha", "as", "ou", "io", "le",
-        "ve", "wa", "co", "mp", "ut", "ing", "ion", "ave", "the", "and", "for", "are", "not",
-        "wave", "computing", "harmonic"
+        "ve", "wa", "co", "mp", "ut", "ma", "rm", "ni", "ic", "pu", "tin", "mo", "de", "ri", "ro",
+        "the", "and", "for", "are", "but", "not", "you", "all", "any", "can", "her", "was", "one"
       ]);
       
       // Tokenize with FrequencyBPE

@@ -40,16 +40,14 @@ function buildDefaultVocabulary() {
   // Whitespace
   ["\n", "\t", "\r"].forEach(register);
   
-  // Common English subwords (frequency-based)
+  // Common English subwords (2-3 chars only, no full words)
   ["th", "he", "in", "er", "an", "re", "on", "at", "en", "nd", "ti", "es", "or", "te", "of",
    "ed", "is", "it", "al", "ar", "st", "to", "nt", "ng", "se", "ha", "as", "ou", "io", "le",
    "ve", "co", "me", "de", "hi", "ri", "ro", "ic", "ne", "ea", "ra", "ce", "li", "ch", "ll",
-   "mo", "ni", "wa", "mp", "ut", "ing", "ion", "ave",
+   "mo", "ni", "wa", "mp", "ut", "ma", "rm", "pu", "tin", "po", "ta", "so", "la", "mi", "si",
    "the", "and", "for", "are", "but", "not", "you", "all", "any", "can", "her", "was", "one",
    "our", "out", "day", "get", "has", "him", "his", "how", "man", "new", "now", "old", "see",
-   "two", "way", "who", "boy", "did", "its", "let", "put", "say", "she", "too", "use",
-   "wave", "data", "true", "false", "token", "computing", "function", "return", "loss", "model", 
-   "layer", "input", "state", "train", "infer", "harmonic"].forEach(register);
+   "two", "way", "who", "boy", "did", "its", "let", "put", "say", "she", "too", "use"].forEach(register);
   
   // Latin extended
   ["á", "é", "í", "ó", "ú", "ñ", "ç", "ü", "ö", "ä", "à", "è", "ì", "ò", "ù"].forEach(register);
