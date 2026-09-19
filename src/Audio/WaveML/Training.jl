@@ -59,12 +59,17 @@ end
         targets::Vector{Vector{Float64}},
         cfg::WaveTrainConfig;
         audio_save_dir::Union{Nothing, String} = nothing,
+        checkpoint_dir::Union{Nothing, String} = nothing,
+        checkpoint_every::Int = 10,
         verbose::Bool = true
     )::Tuple{WaveModel, TrainingHistory}
 
 Trains the wave model using pure wave evolution.
 Optimizes data points to seek the lowest possible energy state.
 Prints calculation time metrics and (optionally) plays/saves audio of the training.
+
+**New**: Saves checkpoint MKV files every N epochs for resume capability and viewing progress.
+Set `checkpoint_dir` to enable (e.g., "checkpoints/") and `checkpoint_every` to control frequency.
 """
 function train!(
     model::WaveModel,
@@ -74,6 +79,8 @@ function train!(
     audio_cfg::Union{Nothing, WaveAudioConfig} = nothing,
     carrier_frequency::Union{Nothing, Float64} = nothing,
     audio_save_dir::Union{Nothing, String} = nothing,
+    checkpoint_dir::Union{Nothing, String} = nothing,
+    checkpoint_every::Int = 10,
     verbose::Bool = true
 )::Tuple{WaveModel, TrainingHistory}
     n_samples = min(length(inputs), length(targets))
@@ -189,6 +196,29 @@ function train!(
         if verbose && (ep % 5 == 0 || ep == 1 || ep == epochs)
             @printf("  Epoch %3d/%3d | Energy: %8.5f | Acc: %5.1f%% | Calc: %6.2f ms | %9.1f pts/s | lr: %.4f\n",
                     ep, epochs, best_e, acc * 100.0, calc_ms, thru, current_lr)
+        end
+
+        # 💾 Checkpoint MKV Saving: Save model state for resume and viewing
+        if checkpoint_dir !== nothing && (ep % checkpoint_every == 0 || ep == epochs)
+            mkpath(checkpoint_dir)
+            ckpt_path = joinpath(checkpoint_dir, @sprintf("checkpoint_epoch_%04d.mkv", ep))
+            try
+                save_model(
+                    state.best_model, 
+                    ckpt_path; 
+                    video_cfg = WaveVideoConfig(frames=8, fps=4, render_mode=:potts_model_q_state_domains),
+                    audio_cfg = audio_cfg,
+                    include_audio = false,  # Skip audio in checkpoints for speed
+                    export_mp4 = true  # Export viewable MP4 alongside MKV
+                )
+                if verbose && ep % checkpoint_every == 0
+                    @printf("  💾 Checkpoint saved: %s (%.1f KB)\n", ckpt_path, filesize(ckpt_path)/1024)
+                end
+            catch e
+                if verbose
+                    @printf("  ⚠️  Checkpoint save failed: %s\n", e)
+                end
+            end
         end
 
         # Champion Bayesian Ground-State Early Stopping

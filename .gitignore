@@ -22,4 +22,4 @@ desktop.ini
 Backups/
 
 # === Logs keep-dirs: dirs ship via .gitkeep, generated content is evidence — keep committed.
-#     If logs ever bloat, revisit via backup.sh/--exclude strategy. ===
+#     If logs ever bloat, revisit via backup.sh/--exclude strategy. ===checkpoints_test/
