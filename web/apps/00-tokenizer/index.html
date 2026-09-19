@@ -215,12 +215,8 @@
   <header class="demo-header">
     <h1>🌊 Harmonic Wave Tokenizer</h1>
     <p>
-      Multi-character frequency-based tokenization with continuous waveform synthesis.
-      <strong>Innovation:</strong> Tokens ≠ Characters. Adaptive compression achieves 0.73 tokens/char.
-    </p>
-    <p>
-      <em>Grand Champion: <strong>Soliton_WavePacket</strong> (144-Algorithm Tournament, Score: 11,099.29)</em><br>
-      <small>27% compression vs char-level • 100% accuracy • 84.6 µs latency • Perfect phase coherence</small>
+      Continuous waveform tokenization with frequency-based subword detection.
+      Text → acoustic wave packets → playable audio.
     </p>
   </header>
 
@@ -336,26 +332,26 @@
       <h4>🎨 Token Color Legend</h4>
       <div class="legend-item">
         <span class="legend-color" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border: 2px solid rgba(255,255,255,0.3);"></span>
-        <strong>Pink with border:</strong> Multi-character tokens (2+ chars, e.g., "th", "the", "wave")
-        <br><small style="margin-left: 2rem; color: rgba(255,255,255,0.7);">🔥 = Learned from text frequency (≥2 occurrences)</small>
+        <strong>Pink:</strong> Multi-character tokens (2+ chars)
+        <br><small style="margin-left: 2rem; color: rgba(255,255,255,0.7);">🔥 = Learned from text frequency</small>
       </div>
       <div class="legend-item">
         <span class="legend-color" style="background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);"></span>
-        <strong>Yellow:</strong> Emoji tokens (🌊, 🧠, ⚡, etc.)
+        <strong>Yellow:</strong> Emoji tokens
       </div>
       <div class="legend-item">
         <span class="legend-color" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></span>
         <strong>Blue/Purple:</strong> Single character tokens
       </div>
       <div class="legend-item" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
-        <strong>Tournament Winner:</strong> Soliton_WavePacket achieved 0.7318 tokens/char (27% compression) with 100% accuracy across 12 diverse test files.
-        Each token is a continuous sound wave at a unique harmonic frequency (432 Hz - 8 kHz) with soliton envelope preservation.
+        Each token is a continuous sound wave with unique harmonic frequency (432 Hz - 8 kHz).
+        Hover over tokens to see frequency, phase, and waveform energy.
       </div>
     </div>
   </div>
 
   <footer class="demo-footer">
-    Sovwave Tokenizer · <strong>Soliton_WavePacket Winner</strong> · 0.7318 tokens/char · 11,822 tok/sec · 100% accuracy
+    Sovwave Tokenizer · Frequency-adaptive BPE with continuous waveform synthesis
   </footer>
 
   <script src="../_shared/wave-utils.js"></script>

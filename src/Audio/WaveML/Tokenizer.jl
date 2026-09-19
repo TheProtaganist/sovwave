@@ -410,43 +410,15 @@ end
 """
     tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
 
-🏆 **TOURNAMENT WINNER: Soliton_WavePacket Algorithm**
-Grand Champion of 144-algorithm tournament (Score: 11,099.29)
-
-Enhanced frequency-based multi-character tokenizer achieving:
-- 0.7318 tokens/char compression (27% better than char-level)
-- 100% bidirectional reconstruction accuracy
-- 84.6 µs latency (11,822 tokenizations/second)
-- Perfect phase coherence: 1.0000
-
-**Key Innovation:** Tokens ≠ Characters. Common subwords like "wave", "the", "computing" 
-are single tokens, not individual characters.
-
-**Algorithm:**
-1. Builds real-time frequency table for bigrams in current text
-2. Greedy longest-match with priority: [8, 6, 4, 2] char lookahead
-3. Matches if: (a) in vocabulary OR (b) high-frequency bigram (≥2 occurrences)
-4. Dynamically registers novel tokens for zero <UNK> data loss
-5. Fallback to single character for unmatched positions (Soliton envelope preservation)
-
-**Performance across languages:**
-- English: 0.726 tokens/char (common subwords optimized)
-- Code (Python/Julia): 0.729 tokens/char (keywords recognized)
-- CJK (Chinese/Japanese): 0.986 tokens/char (expected 1:1, char=morpheme)
-- Arabic: 0.731 tokens/char (RTL + diacritics preserved)
-- Cyrillic: 0.728 tokens/char (full Russian optimization)
-- Repeated patterns: 0.333 tokens/char (best compression via frequency)
-
-See complete tournament results: `specs/Tokenizer_144_Winners.md`
+Frequency-adaptive BPE tokenizer with bigram learning.
 """
 function tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
     isempty(text) && return Int[]
     tokens = Int[]
-
     chars = collect(text)
     n_chars = length(chars)
     
-    # Build frequency table for bigrams (adaptive compression)
+    # Learn bigram frequencies from input
     bigram_freq = Dict{String, Int}()
     for i in 1:(n_chars - 1)
         bg = string(chars[i], chars[i+1])
@@ -457,15 +429,13 @@ function tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
     while idx <= n_chars
         matched = false
         
-        # Try multi-character subwords: prioritize [8, 6, 4, 2] char sequences
-        # This gives better compression than pure longest-match (16 chars)
+        # Try subword matches (8, 6, 4, 2 char lookahead)
         for len in [8, 6, 4, 2]
-            if idx + len - 1 <= n_chars
+            if idx + len <= n_chars
                 sub = String(chars[idx:(idx + len - 1)])
                 
-                # Match if: (1) in vocab, OR (2) high-frequency bigram (≥2 occurrences)
+                # Match if in vocab OR frequent bigram (≥2 occurrences)
                 if haskey(tok.vocab, sub) || (len == 2 && get(bigram_freq, sub, 0) >= 2)
-                    # Register dynamically if novel token
                     if !haskey(tok.vocab, sub)
                         id = register_token!(tok, sub)
                     else
@@ -478,16 +448,16 @@ function tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
                 end
             end
         end
-
+        
+        # Single character fallback
         if !matched
-            # Single character fallback (any UTF-8 character, script, or emoji)
             ch_str = String([chars[idx]])
             id = haskey(tok.vocab, ch_str) ? tok.vocab[ch_str] : register_token!(tok, ch_str)
             push!(tokens, id)
             idx += 1
         end
     end
-
+    
     return tokens
 end
 

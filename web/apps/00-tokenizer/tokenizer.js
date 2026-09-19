@@ -167,51 +167,38 @@ function generateWaveform(token, nSamples = 32, sampleRate = 48000.0, t0 = 0.0) 
 }
 
 // ============================================================================
-// ENHANCED TOKENIZER (Soliton_WavePacket Tournament Winner Algorithm)
+// TOKENIZER
 // ============================================================================
 
-/**
- * Soliton_WavePacket Tokenizer - Grand Champion (Score: 11,099.29)
- * 
- * Key Innovation: Multi-character frequency-based tokens
- * - Adaptive bigram frequency analysis
- * - Greedy longest-match with [8, 6, 4, 2] priority
- * - 0.7318 tokens/char compression (27% better than char-level)
- * - 100% reconstruction accuracy
- * - 84.6 µs latency in Julia (mirrored in JS)
- */
 function tokenizeEnhanced(text) {
   if (!text || text.length === 0) return [];
   
-  const chars = Array.from(text);  // Handles multi-byte UTF-8 correctly
+  const chars = Array.from(text);
   const nChars = chars.length;
   const tokens = [];
   
-  // Step 1: Build frequency table for bigrams (adaptive compression)
+  // Learn bigram frequencies
   const bigramFreq = new Map();
   for (let i = 0; i < nChars - 1; i++) {
     const bigram = chars[i] + chars[i + 1];
     bigramFreq.set(bigram, (bigramFreq.get(bigram) || 0) + 1);
   }
   
-  // Step 2: Greedy longest-match tokenization with Soliton priority
+  // Tokenize
   let idx = 0;
   while (idx < nChars) {
     let matched = false;
     
-    // Try multi-character sequences: [8, 6, 4, 2] (Soliton_WavePacket strategy)
     for (const len of [8, 6, 4, 2]) {
       if (idx + len <= nChars) {
         const sub = chars.slice(idx, idx + len).join('');
-        
-        // Match if: (1) in vocab, OR (2) high-frequency bigram (≥2 occurrences)
         const inVocab = VOCAB.has(sub);
         const isFreqBigram = (len === 2 && (bigramFreq.get(sub) || 0) >= 2);
         
         if (inVocab || isFreqBigram) {
           tokens.push({
             text: sub,
-            id: VOCAB.get(sub) || -1,  // -1 for dynamic registration
+            id: VOCAB.get(sub) || -1,
             length: len,
             isMultiChar: len > 1,
             isEmoji: /\p{Emoji}/u.test(sub),
@@ -224,7 +211,6 @@ function tokenizeEnhanced(text) {
       }
     }
     
-    // Fallback: single character (Soliton envelope preservation)
     if (!matched) {
       const ch = chars[idx];
       tokens.push({
