@@ -73,47 +73,97 @@ end
         tokenizer::WaveTokenizer,
         prompt::String;
         max_new_tokens::Int = 16,
-        temperature::Float64 = 0.7
+        temperature::Float64 = 0.7,
+        top_k::Int = 50,
+        top_p::Float64 = 0.9
     )::String
 
-Autoregressively generates text tokens using the trained wave model.
+Autoregressively generates coherent text tokens using the trained wave model.
 Encodes context into continuous wave embeddings, propagates through quantum layers,
-and resonates the output wave state against the tokenizer's vocabulary.
+and resonates the output wave state against the tokenizer's vocabulary via fast
+matrix projection and top-k / top-p nucleus sampling.
 """
 function generate_text(
     model::WaveModel,
     tokenizer::WaveTokenizer,
     prompt::String;
     max_new_tokens::Int = 16,
-    temperature::Float64 = 0.7
+    temperature::Float64 = 0.7,
+    top_k::Int = 50,
+    top_p::Float64 = 0.9
 )::String
     wave_tokens = tokenize(tokenizer, prompt)
     token_ids = [wf.token_id for wf in wave_tokens]
     embed_dim = model.model_config.embed_dims
     eos_id = tokenizer.special_tokens[:EOS]
+    pad_id = tokenizer.special_tokens[:PAD]
+
+    # Pre-compute vocabulary wave packet projection matrix for ultra-fast resonance
+    V = length(tokenizer.inv_vocab)
+    out_dim = model.model_config.nodes
+    W_proj = Matrix{Float64}(undef, out_dim, V)
+    for k in 1:V
+        W_proj[:, k] = to_wave_packet(tokenizer, k, out_dim)
+    end
 
     for _ in 1:max_new_tokens
         # Encode current sequence context into continuous wave vector
-        seq_mat = encode_sequence(tokenizer, decode(tokenizer, token_ids); max_len=length(token_ids), embed_dim=embed_dim)
+        cur_text = decode(tokenizer, token_ids)
+        seq_mat = encode_sequence(tokenizer, cur_text; max_len=max(1, length(token_ids)), embed_dim=embed_dim)
         context_vec = vec(mean(seq_mat, dims=2))
-        
+
         # Propagate through wave model layers
         output_wave = forward!(model, context_vec)
-        
-        # Resonant decoding: calculate cosine similarity across vocabulary
-        V = length(tokenizer.inv_vocab)
-        out_dim = length(output_wave)
-        logits = Vector{Float64}(undef, V)
-        for k in 1:V
-            target_packet = to_wave_packet(tokenizer, k, out_dim)
-            logits[k] = dot(output_wave, target_packet) / max(temperature, 1e-4)
+        out_norm = norm(output_wave)
+        if out_norm > 1e-6
+            output_wave ./= out_norm
         end
-        
-        # Softmax sampling
-        max_l = maximum(logits)
+
+        # Fast BLAS matrix projection: resonant dot product across entire vocabulary
+        logits = (W_proj' * output_wave) ./ max(temperature, 1e-4)
+
+        # Mask padding and special tokens
+        logits[pad_id] = -Inf
+
+        # Top-K filtering
+        if top_k > 0 && top_k < V
+            perm = sortperm(logits, rev=true)
+            cutoff = logits[perm[top_k]]
+            logits[logits .< cutoff] .= -Inf
+        end
+
+        # Softmax probabilities
+        max_l = maximum(logits[isfinite.(logits)])
         probs = exp.(logits .- max_l)
-        probs ./= sum(probs)
-        
+        probs[.!isfinite.(logits)] .= 0.0
+        p_sum = sum(probs)
+        if p_sum > 1e-12
+            probs ./= p_sum
+        else
+            probs .= 1.0 / V
+        end
+
+        # Top-P (nucleus) filtering
+        if top_p < 1.0
+            sorted_indices = sortperm(probs, rev=true)
+            sorted_probs = probs[sorted_indices]
+            cum_probs = cumsum(sorted_probs)
+            # Find cutoff
+            cutoff_mask = cum_probs .> top_p
+            if any(cutoff_mask)
+                cutoff_idx = findfirst(cutoff_mask)
+                if cutoff_idx > 1
+                    for idx in (cutoff_idx + 1):length(sorted_indices)
+                        probs[sorted_indices[idx]] = 0.0
+                    end
+                end
+            end
+            p_sum2 = sum(probs)
+            if p_sum2 > 1e-12
+                probs ./= p_sum2
+            end
+        end
+
         # Sample next token
         r = rand()
         cum = 0.0
@@ -125,7 +175,7 @@ function generate_text(
                 break
             end
         end
-        
+
         push!(token_ids, sampled_id)
         if sampled_id == eos_id
             break

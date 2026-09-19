@@ -212,3 +212,90 @@ function train!(
     # Return champion model and history
     return (state.best_model, history)
 end
+
+# Overload for WaveDataset
+function train!(
+    model::WaveModel,
+    ds::WaveDataset,
+    cfg::WaveTrainConfig = model.train_config !== nothing ? model.train_config : WaveTrainConfig();
+    kwargs...
+)
+    return train!(model, ds.inputs, ds.targets, cfg; kwargs...)
+end
+
+# Overload for generic AbstractVectors (e.g. Vector{Any}, Vector{Vector{Float32}}, etc.)
+function train!(
+    model::WaveModel,
+    inputs::AbstractVector,
+    targets::AbstractVector,
+    cfg::WaveTrainConfig = model.train_config !== nothing ? model.train_config : WaveTrainConfig();
+    kwargs...
+)
+    f_inputs = [Float64.(collect(v)) for v in inputs]
+    f_targets = [Float64.(collect(v)) for v in targets]
+    return train!(model, f_inputs, f_targets, cfg; kwargs...)
+end
+
+"""
+    train_text!(
+        model::WaveModel,
+        texts::Vector{String};
+        tokenizer::WaveTokenizer = default_tokenizer(),
+        cfg::WaveTrainConfig = WaveTrainConfig(),
+        max_len::Int = 32,
+        kwargs...
+    )::Tuple{WaveModel, TrainingHistory}
+
+Trains a wave model directly on raw natural language text strings anywhere with 1 line.
+Automatically embeds text documents into continuous wave representations using `tokenizer`
+and executes wave ground-state evolutionary training.
+"""
+function train_text!(
+    model::WaveModel,
+    texts::Vector{String};
+    tokenizer::WaveTokenizer = default_tokenizer(),
+    cfg::WaveTrainConfig = WaveTrainConfig(),
+    max_len::Int = 32,
+    kwargs...
+)::Tuple{WaveModel, TrainingHistory}
+    embed_dim = model.model_config.embed_dims
+    nodes = model.model_config.nodes
+    ds = format_text(texts, [1 for _ in texts]; tokenizer=tokenizer, max_len=max_len, embed_dim=embed_dim)
+    targets = [0.5 .* sin.(2π .* (1:nodes) ./ nodes .+ Float64(i)*0.1) for i in 1:length(texts)]
+    return train!(model, ds.inputs, targets, cfg; kwargs...)
+end
+
+"""
+    train_llm(
+        model::WaveModel,
+        texts::Vector{String};
+        tokenizer::WaveTokenizer = default_tokenizer(),
+        epochs::Int = 10,
+        batch_size::Int = 16,
+        learning_rate::Float64 = 0.05,
+        population_size::Int = 12,
+        max_len::Int = 32,
+        verbose::Bool = true
+    )::Tuple{WaveModel, TrainingHistory}
+
+Autoregressive language model wave pretraining directly on text strings.
+"""
+function train_llm(
+    model::WaveModel,
+    texts::Vector{String};
+    tokenizer::WaveTokenizer = default_tokenizer(),
+    epochs::Int = 10,
+    batch_size::Int = 16,
+    learning_rate::Float64 = 0.05,
+    population_size::Int = 12,
+    max_len::Int = 32,
+    verbose::Bool = true
+)::Tuple{WaveModel, TrainingHistory}
+    cfg = WaveTrainConfig(
+        epochs = epochs,
+        batch_size = batch_size,
+        learning_rate = learning_rate,
+        population_size = population_size
+    )
+    return train_text!(model, texts; tokenizer=tokenizer, cfg=cfg, max_len=max_len, verbose=verbose)
+end

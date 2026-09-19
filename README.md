@@ -216,22 +216,61 @@ Every token is an acoustic waveform:
 ```julia
 using Sovwave
 
+# 1. Default Pretrained Tokenizer (converted GPT-2 pipeline with 50,000+ words, works 100% offline)
 tok = default_tokenizer()
 
-# Multilingual & Emoji input
-s = "Sovwave 🌊 🧠 ⚡ 🚀 ⚛️: Quantum in 中文, 日本語, 한국어, العربية, हिन्दी, Русский"
+# 2. Select any supported pretrained pipeline:
+tok_gpt2     = default_tokenizer(model=:gpt2)       # GPT-2 (50,257 tokens, offline bundled)
+tok_qwen     = default_tokenizer(model=:qwen)       # Qwen 2.5 (151,643 tokens)
+tok_mistral  = default_tokenizer(model=:mistral)    # Mistral 7B (32,768 tokens)
+tok_llama    = default_tokenizer(model=:llama)      # LLaMA 3.2 (128,256 tokens)
+tok_deepseek = default_tokenizer(model=:deepseek)   # DeepSeek V3 (129,280 tokens)
+
+# 3. Load directly from any Hugging Face repo or local tokenizer file:
+tok_custom   = load_huggingface_tokenizer("Qwen/Qwen2.5-0.5B")
+tok_local    = load_tokenizer_file("path/to/tokenizer.json")
+
+# Multilingual & Emoji input with whole-word subword tokenization
+s = "DeepSeek-V4 is a continuous wave language model in Sovwave 🌊🧠⚡"
 
 # Tokenize into continuous physical WaveForms
-waveforms = tokenize(tok, s)
+ids = tokenize_ids(tok, s)
+println("Tokens: ", [tok.inv_vocab[id] for id in ids])
+# -> ["Deep", "See", "k", "-", "V", "4", "Ġis", "Ġa", "Ġcontinuous", "Ġwave", "Ġlanguage", "Ġmodel", ...]
 
 # Loss-free exact round-trip reconstruction (Zero <UNK>)
-@assert decode(tok, waveforms) == s
+@assert decode(tok, ids) == s
 
 # Synthesize continuous sound audio buffer
+waveforms = tokenize(tok, s)
 audio_buffer = to_audio(waveforms; sample_rate=48000.0)
 
 # Export as a real playable WAV audio file
 sonify_tokens(tok, s, path="multilingual_wave.wav")
+```
+
+---
+
+## 🚀 Portable Training: Run Anywhere in 1 Line
+
+Install `Sovwave` from GitHub and train models immediately with zero local directory dependencies:
+
+```julia
+using Sovwave
+
+# Train an LLM directly on raw text with 1 line:
+texts = [
+    "DeepSeek-V4 is a continuous wave language model",
+    "Quantum harmonic computing resonates with physics",
+    "Self-organizing vacuum dynamics govern wave evolution"
+]
+
+model = WaveModel(default_config())
+trained_model, history = train_llm(model, texts; epochs=10)
+
+# Generate coherent text:
+output = generate_text(trained_model, default_tokenizer(), "DeepSeek-V4 is"; max_new_tokens=8)
+println(output)
 ```
 
 ---

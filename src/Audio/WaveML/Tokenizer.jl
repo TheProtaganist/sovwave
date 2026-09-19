@@ -105,7 +105,13 @@ function token_wave_frequency(s::String; carrier_frequency::Float64 = 432.0, bet
         total_f += w * unicode_wave_frequency(c; carrier_frequency=carrier_frequency, beta_s=beta_s)
         weight_sum += w
     end
-    return total_f / weight_sum
+    f_base = total_f / weight_sum
+    # Deterministic Weyl displacement ensures words sharing common prefixes have distinct harmonic carriers
+    u = UInt32(hash(s) & 0x7fffffff)
+    inv_phi = 1.0 / beta_s
+    weyl = mod(Float64(u) * inv_phi, 1.0)
+    octave = Float64(u % 12) / 12.0
+    return f_base * (0.8 + 0.4 * weyl) * (beta_s ^ (octave * 0.2))
 end
 
 """
@@ -120,11 +126,9 @@ function token_wave_phase(s::String; beta_s::Float64 = 1.618033988749895)::Float
     elseif length(chars) == 1
         return unicode_wave_phase(chars[1]; beta_s=beta_s)
     end
-    ph = 0.0
-    for (i, c) in enumerate(chars)
-        ph += unicode_wave_phase(c; beta_s=beta_s) * (beta_s ^ (-Float64(i - 1)))
-    end
-    return mod(ph, 2π)
+    u = UInt32(hash(s) & 0x7fffffff)
+    inv_phi = 1.0 / beta_s
+    return mod(2π * Float64(u) * inv_phi, 2π)
 end
 
 """
@@ -197,122 +201,54 @@ function register_token!(tok::WaveTokenizer, s::String)::Int
 end
 
 """
-    default_tokenizer(; carrier_frequency=432.0)::WaveTokenizer
+    default_tokenizer(;
+        model::Union{Symbol, String} = :gpt2,
+        carrier_frequency::Float64 = 432.0,
+        beta_s::Float64 = 1.618033988749895,
+        token::Union{Nothing, String} = nothing
+    )::WaveTokenizer
 
-Returns the standard universal Wave Tokenizer equipped with:
-- Standard special tokens (<PAD>, <UNK>, <BOS>, <EOS>, <SEP>, <MASK>)
-- All standard ASCII printable characters and whitespace
-- Latin Extended / Accented characters (Spanish, French, German, Scandinavian, etc.)
-- Greek, Cyrillic, Arabic, Hebrew, Devanagari (Hindi), CJK, Japanese, and Korean alphabets
-- Sacred Geometry, Mathematical & Physics symbols (∂, ∇, ∫, ∑, ℏ, ψ, Φ, π, etc.)
-- Universal Emojis (🌊, 🧠, ⚡, 🚀, ⚛️, 🔮, 🎵, 🎶, 🔊, 🌐, 🌌, ✨, 🌟, 💡, 🔥, etc.)
-- Common subwords, punctuation, and digits
+Returns a rich, converted pretrained pipeline `WaveTokenizer`.
+By default, uses the converted GPT-2 / Qwen pipeline with thousands of full English words,
+scientific terms, AI concepts, symbols, emojis, and world scripts.
+
+Supported `model` options:
+- `:gpt2` (default): converted GPT-2 pipeline (50,257 tokens, works 100% offline via bundled package assets)
+- `:qwen`: converted Qwen 2.5 tokenizer (151k tokens)
+- `:mistral`: converted Mistral 7B tokenizer (32k tokens)
+- `:llama`: converted LLaMA 3.2 tokenizer (128k tokens)
+- `:deepseek`: converted DeepSeek V3 tokenizer (129k tokens)
+- Or any local file path (`"path/to/tokenizer.json"`) or Hugging Face repo string (`"username/model-name"`)
 """
-function default_tokenizer(; carrier_frequency::Float64 = 432.0)::WaveTokenizer
-    specials = ["<PAD>", "<UNK>", "<BOS>", "<EOS>", "<SEP>", "<MASK>"]
-    
-    # Printable ASCII characters (space through ~) plus whitespace
-    ascii_chars = [string(Char(c)) for c in 32:126]
-    whitespace = ["\n", "\t", "\r", " "]
-
-    # Extended Latin & accented characters
-    latin_ext = [
-        "á", "é", "í", "ó", "ú", "à", "è", "ì", "ò", "ù", "ä", "ö", "ü", "ñ", "ç", "ß",
-        "ø", "å", "æ", "œ", "Á", "É", "Í", "Ó", "Ú", "À", "È", "Ì", "Ò", "Ù", "Ä", "Ö",
-        "Ü", "Ñ", "Ç", "Ø", "Å", "Æ", "Œ", "ã", "õ", "â", "ê", "î", "ô", "û", "ě", "š",
-        "č", "ř", "ž", "ý", "ť", "ď", "ň", "ů"
-    ]
-
-    # Greek alphabet
-    greek = [
-        "α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ", "λ", "μ", "ν", "ξ", "ο", "π",
-        "ρ", "σ", "τ", "υ", "φ", "χ", "ψ", "ω", "Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ",
-        "Ι", "Κ", "Λ", "Μ", "Ν", "Ξ", "Ο", "Π", "Ρ", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω"
-    ]
-
-    # Cyrillic alphabet
-    cyrillic = [
-        "а", "б", "в", "г", "д", "е", "ё", "ж", "з", "и", "й", "к", "л", "м", "н", "о",
-        "п", "р", "с", "т", "у", "ф", "х", "ц", "ч", "ш", "щ", "ъ", "ы", "ь", "э", "ю",
-        "я", "А", "Б", "В", "Г", "Д", "Е", "Ё", "Ж", "З", "И", "Й", "К", "Л", "М", "Н",
-        "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ы", "Ь", "Э", "Ю", "Я"
-    ]
-
-    # Arabic alphabet
-    arabic = [
-        "ا", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز", "س", "ش", "ص", "ض", "ط",
-        "ظ", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "ه", "و", "ي", "ء", "آ", "ة", "ى", "ئ", "ؤ"
-    ]
-
-    # Hebrew alphabet
-    hebrew = [
-        "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע",
-        "פ", "צ", "ק", "ר", "ש", "ת", "ך", "ם", "ן", "ף", "ץ"
-    ]
-
-    # Devanagari (Hindi)
-    devanagari = [
-        "अ", "आ", "इ", "ई", "उ", "ऊ", "ऋ", "ए", "ऐ", "ओ", "औ", "क", "ख", "ग", "घ", "ङ",
-        "च", "छ", "ज", "झ", "ञ", "ट", "ठ", "ड", "ढ", "ण", "त", "थ", "द", "ध", "न", "प",
-        "फ", "ब", "भ", "म", "य", "र", "ल", "व", "श", "ष", "स", "ह", "ा", "ि", "ी", "ु",
-        "ू", "ृ", "े", "ै", "ो", "ौ", "्", "ं", "ः"
-    ]
-
-    # CJK Common Characters
-    cjk = [
-        "中", "文", "国", "人", "大", "小", "日", "月", "水", "火", "木", "金", "土", "天", "地",
-        "道", "心", "気", "和", "平", "愛", "智", "慧", "波", "脳", "量", "子", "生", "命", "宇",
-        "宙", "象", "意", "識", "力", "光", "音", "楽", "学", "校", "山", "海", "川", "花", "鳥",
-        "風", "雲", "雷", "電", "神", "仏", "微", "分", "積", "極"
-    ]
-
-    # Japanese Hiragana & Katakana
-    japanese = [
-        "あ", "い", "う", "え", "お", "か", "き", "く", "け", "こ", "さ", "し", "す", "せ", "そ",
-        "た", "ち", "つ", "て", "と", "な", "に", "ぬ", "ね", "の", "は", "ひ", "ふ", "へ", "ほ",
-        "ま", "み", "む", "め", "も", "や", "ゆ", "よ", "ら", "り", "る", "れ", "ろ", "わ", "を", "ん",
-        "ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク", "ケ", "コ", "サ", "シ", "ス", "セ", "ソ",
-        "タ", "チ", "ツ", "テ", "ト", "ナ", "ニ", "ヌ", "ネ", "ノ", "ハ", "ヒ", "フ", "ヘ", "ホ",
-        "マ", "ミ", "ム", "メ", "モ", "ヤ", "ユ", "ヨ", "ラ", "リ", "ル", "レ", "ロ", "ワ", "ヲ", "ン"
-    ]
-
-    # Korean Hangul
-    korean = [
-        "가", "나", "다", "라", "마", "바", "사", "아", "자", "차", "카", "타", "파", "하",
-        "한", "글", "파", "동", "인", "공", "지", "능", "양", "자", "물", "리", "세", "계", "우", "주"
-    ]
-
-    # Sacred Geometry, Mathematical & Physics symbols
-    math_symbols = [
-        "==", "!=", "<=", ">=", "->", "=>", "+=", "-=", "*=", "/=", "::", "...", "/*", "*/",
-        "∂", "∇", "∫", "∬", "∭", "∮", "∑", "∏", "√", "∛", "∞", "∝", "∠", "∧", "∨", "∩", "∪",
-        "≈", "≠", "≡", "≤", "≥", "≪", "≫", "±", "∓", "×", "÷", "⊕", "⊗", "⊙", "⊥", "⊤", "⊢",
-        "⊨", "∴", "∵", "ℏ", "ψ", "Ψ", "λ", "ω", "Ω", "π", "Φ", "φ", "ϵ", "ϕ", "→", "←", "↑", "↓"
-    ]
-
-    # Universal Emojis (First-Class Wave Primitives)
-    emojis = [
-        "🌊", "🧠", "⚡", "🚀", "⚛️", "🔮", "🎵", "🎶", "🔊", "🌐", "🌌", "✨", "🌟", "💡",
-        "🔥", "🌈", "🛠️", "📊", "🎯", "🤖", "💻", "🧬", "🛡️", "🕊️", "🪐", "☀️", "🌙", "⭐",
-        "❤️", "💎", "🔔", "👁️", "🌀", "🎨", "🧪", "📡", "🔋", "🔑", "🏆", "🥇"
-    ]
-    
-    # Common English word fragments & subwords (2-3 chars only, no full words)
-    common_subwords = [
-        "th", "he", "in", "er", "an", "re", "on", "at", "en", "nd", "ti", "es", "or", "te", "of",
-        "ed", "is", "it", "al", "ar", "st", "to", "nt", "ng", "se", "ha", "as", "ou", "io", "le",
-        "ve", "co", "me", "de", "hi", "ri", "ro", "ic", "ne", "ea", "ra", "ce", "li", "ch", "ll",
-        "mo", "ni", "wa", "mp", "ut", "ma", "rm", "pu", "tin", "po", "ta", "so", "la", "mi", "si",
-        "the", "and", "for", "are", "but", "not", "you", "all", "any", "can", "her", "was", "one",
-        "our", "out", "day", "get", "has", "him", "his", "how", "man", "new", "now", "old", "see",
-        "two", "way", "who", "boy", "did", "its", "let", "put", "say", "she", "too", "use"
-    ]
-
-    all_tokens = unique(vcat(specials, ascii_chars, whitespace, latin_ext, greek, cyrillic, arabic, hebrew, devanagari, cjk, japanese, korean, math_symbols, emojis, common_subwords))
-    vocab = Dict{String, Int}(tok => idx for (idx, tok) in enumerate(all_tokens))
-    inv_vocab = all_tokens
-
-    return WaveTokenizer(vocab, inv_vocab; carrier_frequency=carrier_frequency)
+function default_tokenizer(;
+    model::Union{Symbol, String} = :gpt2,
+    carrier_frequency::Float64 = 432.0,
+    beta_s::Float64 = 1.618033988749895,
+    token::Union{Nothing, String} = nothing
+)::WaveTokenizer
+    m_str = string(model)
+    # 1. Local file path check
+    if isfile(m_str)
+        return load_tokenizer_file(m_str; carrier_frequency=carrier_frequency, beta_s=beta_s)
+    end
+    # 2. Bundled package asset check for GPT-2
+    if m_str == "gpt2"
+        asset_file = joinpath(@__DIR__, "assets", "gpt2_vocab.json")
+        if isfile(asset_file)
+            return load_tokenizer_file(asset_file; carrier_frequency=carrier_frequency, beta_s=beta_s)
+        end
+    end
+    # 3. Pretrained models or Hugging Face repo strings
+    if m_str in ("qwen", "qwen2", "mistral", "llama", "llama3", "deepseek") || occursin("/", m_str)
+        try
+            return load_huggingface_tokenizer(m_str; token=token, carrier_frequency=carrier_frequency, beta_s=beta_s)
+        catch e
+            @warn "Sovwave: Could not load online tokenizer for '$m_str' ($e). Using built-in converted pipeline."
+        end
+    end
+    # 4. Built-in curated converted vocabulary pipeline (100% offline, self-contained fallback)
+    vocab = build_curated_pretrained_vocab()
+    return convert_tokenizer(vocab; carrier_frequency=carrier_frequency, beta_s=beta_s)
 end
 
 """
@@ -410,46 +346,44 @@ end
 """
     tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
 
-Frequency-adaptive BPE tokenizer with bigram learning.
+Greedy longest-match BPE subword and whole-word tokenizer with leading whitespace support.
+Matches full words and subwords in single operations, with 100% lossless dynamic
+character registration for zero <UNK> data loss.
 """
 function tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
     isempty(text) && return Int[]
-    tokens = Int[]
-    chars = collect(text)
-    n_chars = length(chars)
-    
-    # Learn bigram frequencies from input
-    bigram_freq = Dict{String, Int}()
-    for i in 1:(n_chars - 1)
-        bg = string(chars[i], chars[i+1])
-        bigram_freq[bg] = get(bigram_freq, bg, 0) + 1
+
+    # Detect whitespace convention in tokenizer vocabulary
+    has_gpt2_space = haskey(tok.vocab, "Ġthe") || haskey(tok.vocab, "Ġis") || haskey(tok.vocab, "Ġa")
+    has_sp_space   = haskey(tok.vocab, " the") || haskey(tok.vocab, " is") || haskey(tok.vocab, " a")
+
+    encoded_text = if has_gpt2_space
+        replace(text, " " => "Ġ")
+    elseif has_sp_space
+        replace(text, " " => " ")
+    else
+        text
     end
-    
+
+    chars = collect(encoded_text)
+    n_chars = length(chars)
+    tokens = Int[]
     idx = 1
+
     while idx <= n_chars
         matched = false
-        
-        # Try subword matches (8, 6, 4, 2 char lookahead)
-        for len in [8, 6, 4, 2]
-            if idx + len <= n_chars
-                sub = String(chars[idx:(idx + len - 1)])
-                
-                # Match if in vocab OR frequent bigram (≥2 occurrences)
-                if haskey(tok.vocab, sub) || (len == 2 && get(bigram_freq, sub, 0) >= 2)
-                    if !haskey(tok.vocab, sub)
-                        id = register_token!(tok, sub)
-                    else
-                        id = tok.vocab[sub]
-                    end
-                    push!(tokens, id)
-                    idx += len
-                    matched = true
-                    break
-                end
+        max_look = min(32, n_chars - idx + 1)
+        for len in max_look:-1:1
+            sub = String(chars[idx:(idx + len - 1)])
+            if haskey(tok.vocab, sub)
+                push!(tokens, tok.vocab[sub])
+                idx += len
+                matched = true
+                break
             end
         end
-        
-        # Single character fallback
+
+        # Single character dynamic registration (ensures zero <UNK>, 100% loss-free)
         if !matched
             ch_str = String([chars[idx]])
             id = haskey(tok.vocab, ch_str) ? tok.vocab[ch_str] : register_token!(tok, ch_str)
@@ -457,7 +391,7 @@ function tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
             idx += 1
         end
     end
-    
+
     return tokens
 end
 
@@ -557,11 +491,11 @@ function sonify_tokens(
 end
 
 """
-    decode(tok::WaveTokenizer, waveforms::Vector{WaveForm})::String
+    decode(tok::WaveTokenizer, waveforms::Vector{WaveForm}; clean_spaces::Bool = true)::String
 
 Decodes text directly from a sequence of physical `WaveForm`s.
 """
-function decode(tok::WaveTokenizer, waveforms::Vector{WaveForm})::String
+function decode(tok::WaveTokenizer, waveforms::Vector{WaveForm}; clean_spaces::Bool = true)::String
     buf = IOBuffer()
     pad_tok = "<PAD>"
     bos_tok = "<BOS>"
@@ -569,18 +503,24 @@ function decode(tok::WaveTokenizer, waveforms::Vector{WaveForm})::String
 
     for wf in waveforms
         if wf.token != pad_tok && wf.token != bos_tok && wf.token != eos_tok
-            print(buf, wf.token)
+            s = wf.token
+            if clean_spaces
+                s = replace(s, "Ġ" => " ")
+                s = replace(s, " " => " ")
+            end
+            print(buf, s)
         end
     end
     return String(take!(buf))
 end
 
 """
-    decode(tok::WaveTokenizer, ids::Vector{Int})::String
+    decode(tok::WaveTokenizer, ids::Vector{Int}; clean_spaces::Bool = true)::String
 
-Decodes text from token IDs, skipping special formatting tokens like <PAD>.
+Decodes text from token IDs, skipping special formatting tokens like <PAD>
+and properly unescaping BPE whitespace markers (`Ġ` and ` `).
 """
-function decode(tok::WaveTokenizer, ids::Vector{Int})::String
+function decode(tok::WaveTokenizer, ids::Vector{Int}; clean_spaces::Bool = true)::String
     buf = IOBuffer()
     pad_id = tok.special_tokens[:PAD]
     bos_id = tok.special_tokens[:BOS]
@@ -590,7 +530,12 @@ function decode(tok::WaveTokenizer, ids::Vector{Int})::String
         if id == pad_id || id == bos_id || id == eos_id
             continue
         elseif 1 <= id <= length(tok.inv_vocab)
-            print(buf, tok.inv_vocab[id])
+            s = tok.inv_vocab[id]
+            if clean_spaces
+                s = replace(s, "Ġ" => " ")
+                s = replace(s, " " => " ")
+            end
+            print(buf, s)
         end
     end
 

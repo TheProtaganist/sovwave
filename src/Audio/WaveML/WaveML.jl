@@ -33,9 +33,11 @@ include("Layer.jl")
 include("Model.jl")
 include("Loss.jl")
 include("Evolution.jl")
-include("Tokenizer.jl")
-include("Dataset.jl")
 include("HuggingFace.jl")
+include("PretrainedVocab.jl")
+include("Tokenizer.jl")
+include("TokenizerConverter.jl")
+include("Dataset.jl")
 include("Heads.jl")
 include("ModelTypes.jl")
 include("Sonify.jl")
@@ -68,11 +70,13 @@ export compute_loss, energy_loss, mmd_loss, resonance_loss, interference_loss, w
 export EvolutionState
 export init_population, evaluate_population!, evolve_generation!
 
-# Public exports: Tokenizer
+# Public exports: Tokenizer & Converter
 export WaveForm, WaveTokenizer, default_tokenizer, build_tokenizer
 export tokenize, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens
 export to_wave_packet, encode_sequence, decode_embedding, decode_sequence_embeddings
 export unicode_wave_frequency, unicode_wave_phase, token_wave_frequency, token_wave_phase, register_token!
+export convert_tokenizer, load_tokenizer_file, load_huggingface_tokenizer, convert_hf_tokenizer
+export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokenizer, llama_tokenizer
 
 # Public exports: Dataset
 export WaveDataset, WaveDataLoader
@@ -94,7 +98,7 @@ export register_model_type!, list_model_types
 export num_layers, parameter_count, get_layer, layer_details, model_summary, inspect_model
 
 # Public exports: Training
-export TrainingMetrics, TrainingHistory, train!
+export TrainingMetrics, TrainingHistory, train!, train_text!, train_llm
 
 # Public exports: Serialization
 export save_model, load_model, model_to_rgb_frames, rgb_frames_to_model, model_to_visual_frames, emergent_color

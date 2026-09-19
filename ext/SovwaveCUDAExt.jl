@@ -19,7 +19,7 @@ using Sovwave.Audio.WaveML
 
 # Register this extension module with the CUDASupport internal state
 function __init__()
-    Sovwave.Audio.WaveML.CUDASupport._CUDA_EXT[] = @__MODULE__
+    Sovwave.Audio.WaveML._CUDA_EXT[] = @__MODULE__
     @info "Sovwave: CUDA extension loaded ($(CUDA.name(CUDA.device())))"
 end
 
