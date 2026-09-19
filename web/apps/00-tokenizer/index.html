@@ -105,6 +105,7 @@
     
     .multi-char-token {
       background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border: 2px solid rgba(255, 255, 255, 0.3);
     }
     
     .emoji-token {
@@ -334,8 +335,9 @@
     <div class="legend">
       <h4>🎨 Token Color Legend</h4>
       <div class="legend-item">
-        <span class="legend-color" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></span>
-        <strong>Pink:</strong> Multi-character tokens (2+ chars, e.g., "th", "the", "wave")
+        <span class="legend-color" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border: 2px solid rgba(255,255,255,0.3);"></span>
+        <strong>Pink with border:</strong> Multi-character tokens (2+ chars, e.g., "th", "the", "wave")
+        <br><small style="margin-left: 2rem; color: rgba(255,255,255,0.7);">🔥 = Learned from text frequency (≥2 occurrences)</small>
       </div>
       <div class="legend-item">
         <span class="legend-color" style="background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);"></span>

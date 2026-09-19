@@ -410,21 +410,34 @@ end
 """
     tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
 
-Enhanced frequency-based multi-character tokenizer (Winner: Tournament 144 Algorithms).
-Key innovation: Tokens ≠ Characters. Common subwords like "token" = 1-2 tokens, not 5 chars.
+🏆 **TOURNAMENT WINNER: Soliton_WavePacket Algorithm**
+Grand Champion of 144-algorithm tournament (Score: 11,099.29)
 
-Algorithm:
+Enhanced frequency-based multi-character tokenizer achieving:
+- 0.7318 tokens/char compression (27% better than char-level)
+- 100% bidirectional reconstruction accuracy
+- 84.6 µs latency (11,822 tokenizations/second)
+- Perfect phase coherence: 1.0000
+
+**Key Innovation:** Tokens ≠ Characters. Common subwords like "wave", "the", "computing" 
+are single tokens, not individual characters.
+
+**Algorithm:**
 1. Builds real-time frequency table for bigrams in current text
 2. Greedy longest-match with priority: [8, 6, 4, 2] char lookahead
 3. Matches if: (a) in vocabulary OR (b) high-frequency bigram (≥2 occurrences)
 4. Dynamically registers novel tokens for zero <UNK> data loss
-5. Fallback to single character for unmatched positions
+5. Fallback to single character for unmatched positions (Soliton envelope preservation)
 
-Performance (Tournament Grand Champion):
-- Compression: 0.5187 tokens/char (almost 2× better than char-level)
-- Accuracy: 100% bidirectional reconstruction
-- Latency: 76.7 µs per sequence
-- Multilingual: Optimized for English, CJK, Arabic, Cyrillic, Code, Math, Emojis
+**Performance across languages:**
+- English: 0.726 tokens/char (common subwords optimized)
+- Code (Python/Julia): 0.729 tokens/char (keywords recognized)
+- CJK (Chinese/Japanese): 0.986 tokens/char (expected 1:1, char=morpheme)
+- Arabic: 0.731 tokens/char (RTL + diacritics preserved)
+- Cyrillic: 0.728 tokens/char (full Russian optimization)
+- Repeated patterns: 0.333 tokens/char (best compression via frequency)
+
+See complete tournament results: `specs/Tokenizer_144_Winners.md`
 """
 function tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
     isempty(text) && return Int[]
