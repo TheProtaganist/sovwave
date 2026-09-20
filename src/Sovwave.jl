@@ -11,7 +11,7 @@ module Sovwave
 
 using Base # explicit self-containment intent (empty deps; nothing but stdlib/Base)
 
-const VERSION = v"0.3.2"
+const VERSION = v"0.3.5"
 
 # --- guarded includes --------------------------------------------------------
 const _SRC_DIR = joinpath(@__DIR__)

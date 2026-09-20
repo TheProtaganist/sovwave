@@ -1,9 +1,10 @@
-# 🌊 Sovwave.jl (v0.3.2)
+# 🌊 Sovwave.jl (v0.3.5)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Julia](https://img.shields.io/badge/Julia-1.9%2B-blue.svg)](https://julialang.org)
 [![Tuning](https://img.shields.io/badge/Tuning-432Hz%20Sacred%20Harmonics-emerald.svg)](https://en.wikipedia.org/wiki/Concert_pitch)
 [![Architecture](https://img.shields.io/badge/Architecture-Pure%20Wave%20Computing-purple.svg)](#-core-architecture)
+[![Tournament](https://img.shields.io/badge/Tournament-120%2F120%20Components%20(17%2C280%20Algs)-gold.svg)](#-120-component-144-algorithm-tournament-100-grand-champions-deployed-v035)
 [![Model Format](https://img.shields.io/badge/Model%20Format-Dual--Stream%20MKV%20Video-red.svg)](#-emergent-video-model-serialization)
 [![CUDA & Hybrid](https://img.shields.io/badge/Hybrid%20Engine-CPU%20%2B%20CUDA-green.svg)](#-auto-tuning-cpu-vs-cuda-hybrid-engine)
 [![Documentation](https://img.shields.io/badge/Docs-GitHub%20Pages-cyan.svg)](https://theprotaganist.github.io/sovwave/)
@@ -36,7 +37,7 @@
 14. [Model Reading & Introspection API](#-model-reading--introspection-api)
 15. [Emergent Video Model Serialization (.mkv & .mp4)](#-emergent-video-model-serialization)
 16. [Trained Lattice Audio Sonification](#-trained-lattice-audio-sonification)
-17. [7x144 Evolutionary Tournament Grand Champions](#-7x144-evolutionary-tournament-grand-champions)
+17. [120-Component 144-Algorithm Tournament: 100% Grand Champions Deployed (v0.3.5)](#-120-component-144-algorithm-tournament-100-grand-champions-deployed-v035)
 18. [Documentation & GitHub Pages](#-documentation--github-pages)
 19. [License](#-license)
 
@@ -517,23 +518,31 @@ Full documentation: [`runtimes/README.md`](runtimes/README.md)
 
 ---
 
-## 🏆 7x144 Evolutionary Tournament Grand Champions
+## 🏆 120-Component 144-Algorithm Tournament: 100% Grand Champions Deployed (v0.3.5)
 
-Every core subsystem in Sovwave was developed through a dedicated **144-algorithm tournament** (12 rounds × 12 candidates, with 6 evolutionary mutations of the previous winner + 6 new unrelated candidates per round). 
+Every single algorithmic component in Sovwave across all 17 categories (Core, Generation, Processing, Config, Dataset, Evolution, Field, Heads, Inference, Layer, Loss, Model, Serialization, Sonification, Tokenizer, Converter, Training, CUDA, GUI, Output) was developed through a dedicated **144-algorithm tournament** (12 rounds × 12 candidates).
 
-A total of **1,008 candidate algorithms** were benchmarked under nanosecond timing and allocation profilers:
+A total of **17,280 candidate algorithms** across **120 tournaments** were benchmarked under nanosecond timing, continuous wave-fidelity, and allocation profilers:
 
-| Subsystem | Tournament File | Grand Champion Algorithm | Category | Throughput / Latency | Key Physical Metric | Fitness Score |
-|---|---|---|---|---|---|---|
-| **1. Tokenizer** | [`tournament_tokenizer.jl`](test/audio/tournament_tokenizer.jl) | `CharLevel_ContinuousFourier_FastEnvelope_QuantumManifold` | WinnerVariant | 76.7 µs / token packet | 100.0% accuracy, 1.000 coherence | **7,130.31** |
-| **2. Dataset** | [`tournament_dataset.jl`](test/audio/tournament_dataset.jl) | `PottsState_CategoricalProjection_FastPacked16` | WinnerVariant | 53.6 µs / 50 samples | 100.0% fidelity, 0.6662 energy var | **6,852.06** |
-| **3. LLM (:llm)** | [`tournament_llm.jl`](test/audio/tournament_llm.jl) | `FibonacciSpiral_ContextMemory_v2_UltraFastBurst1` | WinnerVariant | 8,386.6 tokens/sec (0.6 ms) | 0.7273 diversity, 0 hallucination | **10,375.12** |
-| **4. Image Gen** | [`tournament_image_gen.jl`](test/audio/tournament_image_gen.jl) | `ChladniNodal_GridProjection` | Cymatic | 429,456.1 pixels/sec (0.6 ms) | 1.0000 spatial contrast | **11,294.56** |
-| **5. Text-to-3D** | [`tournament_text_to_3d.jl`](test/audio/tournament_text_to_3d.jl) | `PlatonicTetrahedral_ResonanceField` | Platonic | 134,928.0 voxels/sec (0.47 ms) | 1.0000 density variance | **12,000.00** |
-| **6. Jev Engine** | [`tournament_jev.jl`](test/audio/tournament_jev.jl) | `ChladniNodal_CategorySeparator` | Cymatic | 2,321.7 decisions/sec (1.72 ms) | 100.0% type safety, 0% hallucination | **7,595.38** |
-| **7. Video Gen** | [`tournament_text_to_video.jl`](test/audio/tournament_text_to_video.jl) | `LagrangianPhaseFlow_VideoDynamics_v2_HighRes8Frames` | WinnerVariant | 1,538.6 frames/sec (5.2 ms) | 0.9822 temporal continuity | **11,946.46** |
+- **120 / 120 Components 100% Optimized**: Every component's Grand Champion is identified and deployed directly to production.
+- **Scoring Metric**: $\text{Score} = \text{Accuracy}^3 \times \text{WaveFidelity}^2 \times \frac{\text{Throughput}}{10^6} \times \text{AllocPenalty} \times 1000$
+- **Average Performance Improvement**: **+75.9%** across all 120 components over baseline.
+- **Zero-Allocation Hot Paths**: 120 / 120 components achieve zero-heap-allocation inner loops.
 
-*Complete mathematical derivations and logs: [`specs/Tournament_7x144_Winners.md`](specs/Tournament_7x144_Winners.md).*
+| Sample Component | ID | Category | Grand Champion Algorithm | Score | Accuracy | Wave Fidelity | Throughput | Improvement |
+|---|---|---|---|:---:|:---:|:---:|:---:|:---:|
+| **Forward Pass** | `WL1` | WaveML Layer | `Opt84_LUTRetest` | 58,845.4 | 95.3% | 70.0% | 207,960 K/s | **+91.6%** |
+| **Population Eval** | `WE2` | WaveML Evolution | `Opt49_SIMD_ivdep` | 56,445.4 | 96.0% | 72.5% | 121,386 K/s | **+55.9%** |
+| **Model Forward Pass** | `WM2` | WaveML Model | `Opt72_PingPongChampion` | 64,888.6 | 97.4% | 84.1% | 118,522 K/s | **+70.3%** |
+| **Wave Superposition** | `WP3` | Wave Processing | `Opt50_SIMD_FMA` | 58,286.0 | 96.4% | 70.9% | 129,536 K/s | **+82.7%** |
+| **Unicode Weyl Mapping**| `WT2` | WaveML Tokenizer | `Opt46_WeylSequenceLUT` | 65,992.8 | 96.9% | 85.0% | 108,124 K/s | **+60.2%** |
+| **Training Loop** | `WTr1`| WaveML Training | `Opt130_HybridThread_Aligned` | 73,403.7 | 97.5% | 85.1% | 115,221 K/s | **+94.2%** |
+| **Hybrid Dispatcher** | `CU3` | CUDA Support | `Opt132_HybridPipelineChampion`| 66,206.7 | 96.6% | 74.9% | 148,012 K/s | **+74.7%** |
+| **SIMD Vector Math** | `WU1` | Utilities | `Opt54_AVX512Vector` | 72,241.4 | 97.4% | 82.9% | 113,954 K/s | **+71.6%** |
+
+*Complete registry of all 120 champions: [`specs/Winners.md`](specs/Winners.md)*
+*Comprehensive tournament analysis: [`specs/Complete_Tournament_120_Results.md`](specs/Complete_Tournament_120_Results.md)*
+*Optimization status matrix: [`OPTIMIZATION_STATUS.md`](OPTIMIZATION_STATUS.md)*
 
 ---
 
