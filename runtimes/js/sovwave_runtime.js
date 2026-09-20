@@ -56,6 +56,9 @@ function decodePixels(rawBytes, w, h, numLayers, nodes, embedDim, omega, betaS =
     const bytesPerFrame = w * h * 3;
     const layers = [];
     const TWO_PI = 2 * Math.PI;
+    const bw = Math.max(1, Math.floor(w / embedDim));
+    const bh = Math.max(1, Math.floor(h / nodes));
+    const halfK = Math.max(1, Math.floor(bw / 4));
 
     for (let l = 0; l < numLayers; l++) {
         const frameOff = l * bytesPerFrame;
@@ -67,12 +70,27 @@ function decodePixels(rawBytes, w, h, numLayers, nodes, embedDim, omega, betaS =
         const wspeeds = new Array(nodes).fill(1.0);
 
         for (let r = 0; r < nodes; r++) {
+            const yc = Math.round((r + 0.5) * bh);
             for (let c = 0; c < embedDim; c++) {
-                const px = frameOff + (r * w + c) * 3;
-                if (px + 2 < rawBytes.length) {
-                    amps[r][c]  = (rawBytes[px]     / 255.0) * 2.0;
-                    phs[r][c]   = (rawBytes[px + 1] / 255.0) * TWO_PI;
-                    freqs[r][c] = Math.max(0.1, (rawBytes[px + 2] / 255.0) * 4.0);
+                const xc = Math.round((c + 0.5) * bw);
+                let rAcc = 0.0, gAcc = 0.0, bAcc = 0.0, count = 0;
+                for (let dy = -halfK; dy <= halfK; dy++) {
+                    for (let dx = -halfK; dx <= halfK; dx++) {
+                        const pxX = Math.min(w - 1, Math.max(0, xc + dx));
+                        const pyY = Math.min(h - 1, Math.max(0, yc + dy));
+                        const idx = frameOff + (pyY * w + pxX) * 3;
+                        if (idx + 2 < rawBytes.length) {
+                            rAcc += rawBytes[idx];
+                            gAcc += rawBytes[idx + 1];
+                            bAcc += rawBytes[idx + 2];
+                            count++;
+                        }
+                    }
+                }
+                if (count > 0) {
+                    amps[r][c]  = (rAcc / count / 255.0) * 2.0;
+                    phs[r][c]   = (gAcc / count / 255.0) * TWO_PI;
+                    freqs[r][c] = Math.max(0.1, (bAcc / count / 255.0) * 4.0);
                 }
             }
         }
@@ -141,10 +159,10 @@ class SovwaveModel {
         }
         const cfg = parseMetaYaml(metaText);
 
-        const w = cfg.embedDim % 2 === 0 ? cfg.embedDim : cfg.embedDim + 1;
-        const h = cfg.nodes    % 2 === 0 ? cfg.nodes    : cfg.nodes    + 1;
+        const w = 640;
+        const h = 480;
 
-        const rawBytes = await _extractStreamNode(mkvPath, w, h);
+        const rawBytes = _extractStreamNode(mkvPath);
         const layers   = decodePixels(rawBytes, w, h, cfg.numLayers,
                                       cfg.nodes, cfg.embedDim, cfg.omega, cfg.betaS);
         return new SovwaveModel(layers, cfg.nodes, cfg.embedDim, cfg.omega, cfg.tFrames);
@@ -157,13 +175,9 @@ class SovwaveModel {
      * @returns {Promise<SovwaveModel>}
      */
     static async fromArrayBuffer(mkvBuffer, metaYamlText = '') {
-        // In the browser, we use ffmpeg.wasm or a server-side decode endpoint.
-        // For simplicity, this implementation expects pre-extracted raw RGB bytes
-        // passed as a second ArrayBuffer, or calls a /sovwave/decode endpoint.
         const cfg    = parseMetaYaml(metaYamlText);
-        const w      = cfg.embedDim % 2 === 0 ? cfg.embedDim : cfg.embedDim + 1;
-        const h      = cfg.nodes    % 2 === 0 ? cfg.nodes    : cfg.nodes    + 1;
-        // Treat entire buffer as pre-decoded raw RGB (stream was pre-extracted)
+        const w      = 640;
+        const h      = 480;
         const raw    = new Uint8Array(mkvBuffer);
         const layers = decodePixels(raw, w, h, cfg.numLayers,
                                     cfg.nodes, cfg.embedDim, cfg.omega, cfg.betaS);
@@ -194,21 +208,11 @@ class SovwaveModel {
 
 // ── Node.js ffmpeg stream extractor ──────────────────────────────────────────
 
-function _extractStreamNode(mkvPath, w, h) {
+function _extractStreamNode(mkvPath) {
     const { execFileSync } = require('child_process');
-    // Try data stream (0:v:1) first
-    try {
-        const buf = execFileSync('ffmpeg', [
-            '-loglevel', 'error', '-i', mkvPath,
-            '-map', '0:v:1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'
-        ]);
-        if (buf && buf.length > 0) return new Uint8Array(buf);
-    } catch (_) { /* fallthrough */ }
-
-    // Fallback: visual stream with downscale
     const buf = execFileSync('ffmpeg', [
         '-loglevel', 'error', '-i', mkvPath,
-        '-map', '0:v:0', '-vf', `scale=${w}:${h}:flags=neighbor`,
+        '-map', '0:v:0',
         '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'
     ]);
     return new Uint8Array(buf);

@@ -48,6 +48,9 @@ include("Serialize.jl")
 include("Inference.jl")
 include("Introspect.jl")
 include("CUDASupport.jl")
+include("SovwaveFunctions.jl")
+using .SovwaveFunctions
+export SovwaveFunctions
 
 # Public exports: Config
 export WaveFieldConfig, WaveModelConfig, WaveTrainConfig, WaveAudioConfig, WaveVideoConfig, WaveMLConfig, parse_color_rgb
@@ -123,5 +126,13 @@ export sonify_model, sonify_step, save_wav, play_realtime!
 export enable_cuda!, disable_cuda!, cuda_available, to_gpu, to_cpu
 export WaveHybridDispatcher, hybrid_dispatcher, benchmark_system_vs_cuda
 export hybrid_forward!, hybrid_forward_batch, hybrid_project_vocab, hybrid_evaluate!
+
+# Public exports: SovwaveFunctions (User-Friendly High-Level API)
+export create_model
+export edit_layer!, edit_model!, modulate_frequencies!, shift_phases!, scale_amplitudes!, inspect_harmonics
+export load_dataset, validate_dataset, process_to_waves
+export WaveResonator, WaveChamber
+export WaveMechanicsOptimizer, step_mechanics!, apply_wave_mechanics!
+export train_async, train_wave, AsyncTrainingHandle
 
 end # module WaveML

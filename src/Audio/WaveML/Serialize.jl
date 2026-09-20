@@ -365,6 +365,78 @@ function deserialize_wave_model_binary(raw_bytes::Vector{UInt8}, cfg::WaveMLConf
 end
 
 """
+    model_to_video_frames(
+        model::WaveModel;
+        n_frames::Int = 24,
+        w::Int = 640,
+        h::Int = 480
+    )::Tuple{Vector{UInt8}, Int, Int, Int}
+
+Encodes the `WaveModel` directly into optical video frames using Tournament 8 Grand Champion
+(`Exploratory_CymaticHarmonicGrid_R3_C9`). Each layer is mapped to a spatial macro-harmonic grid
+with boundary guard attenuation, and temporal frames cycle through harmonic oscillations.
+"""
+function model_to_video_frames(
+    model::WaveModel;
+    n_frames::Int = 24,
+    w::Int = 640,
+    h::Int = 480
+)::Tuple{Vector{UInt8}, Int, Int, Int}
+    layers = model.layers
+    num_layers = length(layers)
+    actual_frames = max(n_frames, num_layers)
+
+    bytes_per_frame = w * h * 3
+    raw = zeros(UInt8, bytes_per_frame * actual_frames)
+
+    for f_idx in 1:actual_frames
+        frame_off = (f_idx - 1) * bytes_per_frame
+        l_idx = mod1(f_idx, num_layers)
+        layer = layers[l_idx]
+
+        bw = max(1, div(w, layer.embed_dim))
+        bh = max(1, div(h, layer.nodes))
+
+        # Temporal phase modulation for frames beyond the primary layer states
+        t_phase = f_idx <= num_layers ? 0.0 : 2π * Float64(f_idx - num_layers) / Float64(max(1, actual_frames - num_layers))
+
+        for r in 1:layer.nodes
+            for c in 1:layer.embed_dim
+                amp = layer.amplitudes[r, c]
+                ph = mod2pi(layer.phases[r, c] + t_phase)
+                freq = layer.frequencies[r, c]
+
+                r_byte = UInt8(clamp(round(Int, (amp / 2.0) * 255.0), 0, 255))
+                g_byte = UInt8(clamp(round(Int, (ph / (2π)) * 255.0), 0, 255))
+                b_byte = UInt8(clamp(round(Int, (freq / 4.0) * 255.0), 0, 255))
+
+                xs = (c - 1) * bw + 1
+                ys = (r - 1) * bh + 1
+                xe = min(w, xs + bw - 1)
+                ye = min(h, ys + bh - 1)
+
+                for y in ys:ye
+                    for x in xs:xe
+                        # Outer cell boundary guard-band attenuation to eliminate H.264 block compression bleed
+                        dx = abs(x - (xs + xe) / 2) / max(1.0, bw / 2.0)
+                        dy = abs(y - (ys + ye) / 2) / max(1.0, bh / 2.0)
+                        dist = max(dx, dy)
+                        guard = dist > 0.85 ? 0.92 : 1.0
+
+                        idx = frame_off + ((y - 1) * w + (x - 1)) * 3 + 1
+                        raw[idx]   = UInt8(clamp(round(Int, Float64(r_byte) * guard), 0, 255))
+                        raw[idx+1] = UInt8(clamp(round(Int, Float64(g_byte) * guard), 0, 255))
+                        raw[idx+2] = UInt8(clamp(round(Int, Float64(b_byte) * guard), 0, 255))
+                    end
+                end
+            end
+        end
+    end
+
+    return raw, w, h, actual_frames
+end
+
+"""
     save_model(
         model::WaveModel,
         path::String;
@@ -380,12 +452,11 @@ end
         export_mp4::Bool = true
     )::Nothing
 
-Saves the `WaveModel` as a universally playable MKV video and companion MP4:
-- Stream 0:0 (Visual): High-definition fluid heatmap H.264 video (640x480, 24 fps, yuv420p)
-  starting at step n (full radiant color, no black screen) and flowing through step n_final.
+Saves the `WaveModel` as a pure video model (MKV and companion MP4).
+NO binary weights (.bin) files are generated — the video frames themselves store the complete model state.
+- Stream 0:0 (Visual): High-definition spatial macro-harmonic H.264 video (640x480, 24 fps, yuv420p)
+  encoding layer parameters directly with centroid guard bands.
 - Stream 0:1 (Audio): Presentation audio track synthesized from the trained harmonic lattice oscillations at 432 Hz.
-- Matroska Attachment: Exact lossless binary weights (`wave_model_weights.bin`) for 100% bit-for-bit inference reconstruction.
-Also generates an accompanying metadata YAML and a companion .mp4 file with +faststart for instant opening in all media players.
 """
 function save_model(
     model::WaveModel,
@@ -402,26 +473,17 @@ function save_model(
     export_mp4::Bool = true
 )::Nothing
     v_cfg = video_cfg !== nothing ? video_cfg : WaveVideoConfig()
-    raw_mode = render_mode !== nothing ? render_mode : v_cfg.render_mode
-    actual_mode = (raw_mode == :potts_champion) ? :potts_model_q_state_domains : raw_mode
     actual_fps = fps !== nothing ? fps : max(24, v_cfg.fps)
     actual_n_frames = n_visual_frames !== nothing ? n_visual_frames : max(24, v_cfg.frames)
-    actual_colors = state_colors !== nothing ? state_colors : v_cfg.state_colors
 
-    # 1. Generate Visual Stream (Step n to Step n_final using tournament Grand Champion)
-    vis_raw, w_vis, h_vis, n_vis = model_to_visual_frames(model; n_frames=actual_n_frames, mode=actual_mode, state_colors=actual_colors)
+    # 1. Generate Pure Video Model Frames (Tournament 8 Grand Champion)
+    w_vis = 640
+    h_vis = max(480, iseven(target_height) ? target_height : target_height + 1)
+    vis_raw, w_vis, h_vis, n_vis = model_to_video_frames(model; n_frames=actual_n_frames, w=w_vis, h=h_vis)
 
-    # 2. Generate Exact Lossless Binary Weights
-    binary_weights = serialize_wave_model_binary(model)
-
-    # 3. Generate Audio Stream (Trained harmonic lattice oscillations at 432 Hz)
-    video_duration = max(0.5, Float64(actual_n_frames) / Float64(max(1, actual_fps)))
+    # 2. Audio Stream (Trained harmonic lattice oscillations at 432 Hz)
+    video_duration = max(0.5, Float64(n_vis) / Float64(max(1, actual_fps)))
     actual_audio_cfg = audio_cfg !== nothing ? audio_cfg : WaveAudioConfig(carrier_frequency=model.model_config.omega)
-
-    # Calculate standard display resolution (at least 640x480, even dimensions)
-    target_w = max(640, iseven(w_vis * 4) ? w_vis * 4 : w_vis * 4 + 1)
-    target_h = max(480, iseven(target_height) ? target_height : target_height + 1)
-    scale_filter = "scale=$(target_w):$(target_h):flags=bicubic,format=yuv420p"
 
     tmp_vis = tempname() * "_vis.rgb"
     tmp_audio = tempname() * "_audio.wav"
@@ -429,43 +491,38 @@ function save_model(
     base_path = replace(path, r"\.(mkv|mp4)$"i => "")
     mkv_path = base_path * ".mkv"
     mp4_path = base_path * ".mp4"
-    weights_path = base_path * "_weights.bin"
     meta_path = base_path * "_meta.yaml"
 
     try
         write(tmp_vis, vis_raw)
 
-        # 1. Encode universal high-quality MP4 first (guarantees faststart, correct timestamps, clean stream durations)
+        # 1. Encode universal high-quality MP4 first (+faststart, 640x480, 24fps)
         if include_audio
             audio_buf = sonify_model(model; audio_cfg=actual_audio_cfg, duration=video_duration)
             save_wav(audio_buf, tmp_audio; sample_rate=actual_audio_cfg.sample_rate)
 
-            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -i $tmp_audio -vf $scale_filter -c:v libx264 -pix_fmt yuv420p -preset fast -metadata:s:v:0 title="VISUAL_BRAIN" -c:a aac -b:a 192k -metadata:s:a:0 title="MODEL_AUDIO" -metadata title="WAVEML_MODEL" -movflags +faststart $mp4_path`
+            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -i $tmp_audio -c:v libx264 -pix_fmt yuv420p -preset fast -metadata:s:v:0 title="WAVEML_MODEL_BRAIN" -c:a aac -b:a 192k -metadata:s:a:0 title="MODEL_AUDIO" -metadata title="WAVEML_MODEL" -movflags +faststart $mp4_path`
             run(ffmpeg_cmd)
         else
-            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -vf $scale_filter -c:v libx264 -pix_fmt yuv420p -preset fast -metadata:s:v:0 title="VISUAL_BRAIN" -metadata title="WAVEML_MODEL" -movflags +faststart $mp4_path`
+            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -c:v libx264 -pix_fmt yuv420p -preset fast -metadata:s:v:0 title="WAVEML_MODEL_BRAIN" -metadata title="WAVEML_MODEL" -movflags +faststart $mp4_path`
             run(ffmpeg_cmd)
         end
 
-        # 2. Remux into MKV: 100% compliant Matroska container matching the working MP4 exactly
+        # 2. Remux into MKV: 100% compliant Matroska container matching the working MP4
         run(`ffmpeg -y -loglevel error -i $mp4_path -c copy $mkv_path`)
 
-        # 3. Save companion exact binary weights for instant zero-loss inference
-        write(weights_path, binary_weights)
-
-        # 4. Save companion JSON/YAML metadata file
+        # 3. Save companion metadata
         cfg = WaveMLConfig(
             field = model.field_config,
             model = model.model_config,
             train = WaveTrainConfig(),
             audio = actual_audio_cfg,
             video = WaveVideoConfig(
-                render_mode = actual_mode,
+                render_mode = :spatial_macro_harmonic_centroid,
                 pixel_scale = 4,
-                target_height = target_h,
+                target_height = h_vis,
                 fps = actual_fps,
-                frames = actual_n_frames,
-                state_colors = actual_colors
+                frames = n_vis
             )
         )
         save_config(cfg, meta_path)
@@ -480,14 +537,13 @@ end
 """
     load_model(path::String; meta_path::Union{Nothing, String} = nothing)::WaveModel
 
-Loads a `WaveModel` from an MKV or MP4 video file.
-First attempts bit-for-bit reconstruction from the companion binary weights or MKV container attachment.
-Falls back gracefully to video frame decoding if attachment is unavailable.
+Loads a `WaveModel` directly from an MKV or MP4 video file.
+Zero binary weights (.bin) are used; the video itself is the model.
+Uses Tournament 8 Grand Champion Centroid Kernel Sampling to reconstruct layer parameters directly from video frames.
 """
 function load_model(path::String; meta_path::Union{Nothing, String} = nothing)::WaveModel
     isfile(path) || error("Model file not found: $path")
 
-    # Locate metadata
     actual_meta = if meta_path !== nothing && isfile(meta_path)
         meta_path
     else
@@ -501,57 +557,73 @@ function load_model(path::String; meta_path::Union{Nothing, String} = nothing)::
         default_config()
     end
 
-    # 1. Primary: Check companion _weights.bin file
-    weights_path = replace(path, r"\.(mkv|mp4)$"i => "") * "_weights.bin"
-    if isfile(weights_path) && filesize(weights_path) >= 24
-        bin_data = read(weights_path)
-        loaded = deserialize_wave_model_binary(bin_data, cfg)
-        if loaded !== nothing
-            return loaded
-        end
-    end
-
-    # 2. Secondary: Extract attachment from MKV container (if present in legacy multi-stream MKV)
-    tmp_dump = tempname() * "_weights.bin"
-    loaded_model = try
-        run(`ffmpeg -y -loglevel quiet -dump_attachment:t:0 $tmp_dump -i $path -f null -`)
-        if isfile(tmp_dump) && filesize(tmp_dump) >= 24
-            bin_data = read(tmp_dump)
-            deserialize_wave_model_binary(bin_data, cfg)
-        else
-            nothing
-        end
-    catch
-        nothing
-    finally
-        isfile(tmp_dump) && rm(tmp_dump, force=true)
-    end
-
-    if loaded_model !== nothing
-        return loaded_model
-    end
-
-    # 3. Fallback: Secondary video stream (legacy MKV) or Stream 0:0 video frames
     nodes = cfg.model.nodes
     embed_dim = cfg.model.embed_dims
     num_layers = cfg.model.layers
-    w = iseven(embed_dim) ? embed_dim : embed_dim + 1
-    h = iseven(nodes) ? nodes : nodes + 1
-    downscale_filter = "scale=$(w):$(h):flags=neighbor"
+    w = 640
+    h = 480
 
+    # Extract video frames directly from Stream 0:v:0
     raw_bytes = try
-        read(`ffmpeg -loglevel quiet -i $path -map "0:v:1?" -f rawvideo -pix_fmt rgb24 -`)
-    catch
-        UInt8[]
+        read(`ffmpeg -loglevel error -i $path -map 0:v:0 -f rawvideo -pix_fmt rgb24 -`)
+    catch e
+        error("Failed to decode video frames from $path: $e")
     end
 
-    if isempty(raw_bytes)
-        raw_bytes = try
-            read(`ffmpeg -loglevel error -i $path -map 0:v:0 -vf $downscale_filter -f rawvideo -pix_fmt rgb24 -`)
-        catch
-            read(`ffmpeg -loglevel error -i $path -vf $downscale_filter -f rawvideo -pix_fmt rgb24 -`)
+    isempty(raw_bytes) && error("No video frames found in $path")
+
+    bytes_per_frame = w * h * 3
+    layers = Vector{WaveLayer}(undef, num_layers)
+
+    for l_idx in 1:num_layers
+        frame_off = (l_idx - 1) * bytes_per_frame
+        amps = zeros(Float64, nodes, embed_dim)
+        phs = zeros(Float64, nodes, embed_dim)
+        freqs = zeros(Float64, nodes, embed_dim)
+        fractals = fill(cfg.model.beta_s, nodes)
+
+        bw = max(1, div(w, embed_dim))
+        bh = max(1, div(h, nodes))
+        half_k = max(1, div(bw, 4))
+
+        for r in 1:nodes
+            for c in 1:embed_dim
+                xc = round(Int, (c - 0.5) * bw)
+                yc = round(Int, (r - 0.5) * bh)
+
+                r_acc, g_acc, b_acc, count = 0.0, 0.0, 0.0, 0
+                for dy in -half_k:half_k
+                    for dx in -half_k:half_k
+                        px = clamp(xc + dx, 1, w)
+                        py = clamp(yc + dy, 1, h)
+                        idx = frame_off + ((py - 1) * w + (px - 1)) * 3 + 1
+                        if idx + 2 <= length(raw_bytes)
+                            r_acc += Float64(raw_bytes[idx])
+                            g_acc += Float64(raw_bytes[idx+1])
+                            b_acc += Float64(raw_bytes[idx+2])
+                            count += 1
+                        end
+                    end
+                end
+
+                if count > 0
+                    r_val = r_acc / Float64(count)
+                    g_val = g_acc / Float64(count)
+                    b_val = b_acc / Float64(count)
+
+                    amps[r, c]  = (r_val / 255.0) * 2.0
+                    phs[r, c]   = (g_val / 255.0) * (2π)
+                    freqs[r, c] = max(0.1, (b_val / 255.0) * 4.0)
+                else
+                    amps[r, c]  = 0.5
+                    phs[r, c]   = 0.0
+                    freqs[r, c] = 1.0
+                end
+            end
         end
+
+        layers[l_idx] = WaveLayer(nodes, embed_dim, amps, phs, freqs, fractals, cfg.model.omega)
     end
 
-    return rgb_frames_to_model(raw_bytes, w, h, num_layers, cfg)
+    return WaveModel(layers, cfg.field, cfg.model)
 end

@@ -112,10 +112,10 @@ namespace Sovwave
                 }
             }
 
-            int w = embedDim % 2 == 0 ? embedDim : embedDim + 1;
-            int h = nodes    % 2 == 0 ? nodes    : nodes    + 1;
+            int w = 640;
+            int h = 480;
 
-            byte[] raw    = await ExtractStreamAsync(mkvPath, w, h);
+            byte[] raw    = await ExtractStreamAsync(mkvPath);
             var layerList = DecodePixels(raw, w, h, numLayers, nodes, embedDim, omega, betaS);
             return new SovwaveModel(layerList, nodes, embedDim, omega, tFrames);
         }
@@ -187,6 +187,9 @@ namespace Sovwave
             var layers        = new List<WaveLayerParams>();
             int bytesPerFrame = w * h * 3;
             double twoPi      = 2.0 * Math.PI;
+            int bw            = Math.Max(1, w / embedDim);
+            int bh            = Math.Max(1, h / nodes);
+            int halfK         = Math.Max(1, bw / 4);
 
             for (int l = 0; l < numLayers; l++)
             {
@@ -195,16 +198,43 @@ namespace Sovwave
                 int frameOff = l * bytesPerFrame;
 
                 for (int r = 0; r < nodes; r++)
+                {
+                    int yc = (int)Math.Round((r + 0.5) * bh);
                     for (int c = 0; c < embedDim; c++)
                     {
-                        int px = frameOff + (r * w + c) * 3;
-                        if (px + 2 < raw.Length)
+                        int xc = (int)Math.Round((c + 0.5) * bw);
+                        double rAcc = 0.0, gAcc = 0.0, bAcc = 0.0;
+                        int count = 0;
+                        for (int dy = -halfK; dy <= halfK; dy++)
                         {
-                            lp.Amplitudes[r][c]  = (raw[px]     / 255.0) * 2.0;
-                            lp.Phases[r][c]      = (raw[px + 1] / 255.0) * twoPi;
-                            lp.Frequencies[r][c] = Math.Max(0.1, raw[px + 2] / 255.0 * 4.0);
+                            for (int dx = -halfK; dx <= halfK; dx++)
+                            {
+                                int px = Math.Min(w - 1, Math.Max(0, xc + dx));
+                                int py = Math.Min(h - 1, Math.Max(0, yc + dy));
+                                int idx = frameOff + (py * w + px) * 3;
+                                if (idx + 2 < raw.Length)
+                                {
+                                    rAcc += raw[idx];
+                                    gAcc += raw[idx + 1];
+                                    bAcc += raw[idx + 2];
+                                    count++;
+                                }
+                            }
+                        }
+                        if (count > 0)
+                        {
+                            lp.Amplitudes[r][c]  = (rAcc / count / 255.0) * 2.0;
+                            lp.Phases[r][c]      = (gAcc / count / 255.0) * twoPi;
+                            lp.Frequencies[r][c] = Math.Max(0.1, (bAcc / count / 255.0) * 4.0);
+                        }
+                        else
+                        {
+                            lp.Amplitudes[r][c]  = 0.5;
+                            lp.Phases[r][c]      = 0.0;
+                            lp.Frequencies[r][c] = 1.0;
                         }
                     }
+                }
                 layers.Add(lp);
             }
             return layers;
@@ -212,22 +242,11 @@ namespace Sovwave
 
         // ── ffmpeg extractor ──────────────────────────────────────────────────
 
-        private static async Task<byte[]> ExtractStreamAsync(string mkvPath, int w, int h)
+        private static async Task<byte[]> ExtractStreamAsync(string mkvPath)
         {
-            // Try data stream (0:v:1) first
-            try
-            {
-                var raw = await RunFfmpegAsync(
-                    "ffmpeg", $"-loglevel error -i \"{mkvPath}\" -map 0:v:1 -f rawvideo -pix_fmt rgb24 -");
-                if (raw.Length > 0) return raw;
-            }
-            catch { /* fallthrough */ }
-
-            // Fallback: visual stream with downscale
             return await RunFfmpegAsync(
                 "ffmpeg",
-                $"-loglevel error -i \"{mkvPath}\" -map 0:v:0 -vf scale={w}:{h}:flags=neighbor " +
-                $"-f rawvideo -pix_fmt rgb24 -");
+                $"-loglevel error -i \"{mkvPath}\" -map 0:v:0 -f rawvideo -pix_fmt rgb24 -");
         }
 
         private static async Task<byte[]> RunFfmpegAsync(string exe, string args)

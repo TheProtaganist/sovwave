@@ -109,10 +109,10 @@ public class SovwaveModel {
             } catch (Exception ignored) {}
         }
 
-        int w = (embedDim % 2 == 0) ? embedDim : embedDim + 1;
-        int h = (nodes    % 2 == 0) ? nodes    : nodes    + 1;
+        int w = 640;
+        int h = 480;
 
-        byte[] raw = extractStream(mkvPath, w, h);
+        byte[] raw = extractStream(mkvPath);
         List<WaveLayerParams> layerList = decodePixels(raw, w, h, numLayers, nodes, embedDim, omega, betaS);
         return new SovwaveModel(layerList, nodes, embedDim, omega, tFrames);
     }
@@ -188,6 +188,9 @@ public class SovwaveModel {
         List<WaveLayerParams> layers = new ArrayList<>();
         int bytesPerFrame = w * h * 3;
         double TWO_PI = 2.0 * Math.PI;
+        int bw = Math.max(1, w / embedDim);
+        int bh = Math.max(1, h / nodes);
+        int halfK = Math.max(1, bw / 4);
 
         for (int l = 0; l < numLayers; l++) {
             WaveLayerParams lp = new WaveLayerParams(nodes, embedDim, omega);
@@ -195,12 +198,32 @@ public class SovwaveModel {
             int frameOff = l * bytesPerFrame;
 
             for (int r = 0; r < nodes; r++) {
+                int yc = (int) Math.round((r + 0.5) * bh);
                 for (int c = 0; c < embedDim; c++) {
-                    int px = frameOff + (r * w + c) * 3;
-                    if (px + 2 < raw.length) {
-                        lp.amplitudes[r][c]  = ((raw[px]     & 0xFF) / 255.0) * 2.0;
-                        lp.phases[r][c]      = ((raw[px + 1] & 0xFF) / 255.0) * TWO_PI;
-                        lp.frequencies[r][c] = Math.max(0.1, (raw[px + 2] & 0xFF) / 255.0 * 4.0);
+                    int xc = (int) Math.round((c + 0.5) * bw);
+                    double rAcc = 0.0, gAcc = 0.0, bAcc = 0.0;
+                    int count = 0;
+                    for (int dy = -halfK; dy <= halfK; dy++) {
+                        for (int dx = -halfK; dx <= halfK; dx++) {
+                            int px = Math.min(w - 1, Math.max(0, xc + dx));
+                            int py = Math.min(h - 1, Math.max(0, yc + dy));
+                            int idx = frameOff + (py * w + px) * 3;
+                            if (idx + 2 < raw.length) {
+                                rAcc += (raw[idx] & 0xFF);
+                                gAcc += (raw[idx + 1] & 0xFF);
+                                bAcc += (raw[idx + 2] & 0xFF);
+                                count++;
+                            }
+                        }
+                    }
+                    if (count > 0) {
+                        lp.amplitudes[r][c]  = (rAcc / count / 255.0) * 2.0;
+                        lp.phases[r][c]      = (gAcc / count / 255.0) * TWO_PI;
+                        lp.frequencies[r][c] = Math.max(0.1, (bAcc / count / 255.0) * 4.0);
+                    } else {
+                        lp.amplitudes[r][c]  = 0.5;
+                        lp.phases[r][c]      = 0.0;
+                        lp.frequencies[r][c] = 1.0;
                     }
                 }
             }
@@ -211,21 +234,10 @@ public class SovwaveModel {
 
     // ── ffmpeg extractor ──────────────────────────────────────────────────────
 
-    private static byte[] extractStream(String mkvPath, int w, int h) throws IOException {
-        // Try data stream (0:v:1) first
-        try {
-            byte[] raw = runFfmpeg(new String[]{
-                "ffmpeg", "-loglevel", "error", "-i", mkvPath,
-                "-map", "0:v:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"
-            });
-            if (raw.length > 0) return raw;
-        } catch (Exception ignored) {}
-
-        // Fallback: visual stream with downscale
+    private static byte[] extractStream(String mkvPath) throws IOException {
         return runFfmpeg(new String[]{
             "ffmpeg", "-loglevel", "error", "-i", mkvPath,
-            "-map", "0:v:0", "-vf", "scale=" + w + ":" + h + ":flags=neighbor",
-            "-f", "rawvideo", "-pix_fmt", "rgb24", "-"
+            "-map", "0:v:0", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"
         });
     }
 

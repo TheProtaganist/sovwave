@@ -111,6 +111,16 @@ export enable_cuda!, disable_cuda!, cuda_available, to_gpu, to_cpu
 export WaveHybridDispatcher, hybrid_dispatcher, benchmark_system_vs_cuda
 export hybrid_forward!, hybrid_forward_batch, hybrid_project_vocab, hybrid_evaluate!
 
+# User-Friendly High-Level API (SovwaveFunctions)
+using .Audio.WaveML.SovwaveFunctions
+export SovwaveFunctions
+export create_model
+export edit_layer!, edit_model!, modulate_frequencies!, shift_phases!, scale_amplitudes!, inspect_harmonics
+export load_dataset, validate_dataset, process_to_waves
+export WaveResonator, WaveChamber
+export WaveMechanicsOptimizer, step_mechanics!, apply_wave_mechanics!
+export train_async, train_wave, AsyncTrainingHandle
+
 # Visual GUI Server
 using .GUI
 export launch_gui, stop_gui!

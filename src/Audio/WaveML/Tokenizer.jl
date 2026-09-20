@@ -579,11 +579,10 @@ function decode(tok::WaveTokenizer, ids::Vector{Int}; clean_spaces::Bool = true)
         if id == pad_id || id == bos_id || id == eos_id
             continue
         elseif 1 <= id <= length(tok.inv_vocab)
-            raw_s = tok.inv_vocab[id]
-            has_bpe_space = occursin("Ġ", raw_s) || occursin(" ", raw_s)
-            s = clean_spaces ? replace(replace(raw_s, "Ġ" => " "), " " => " ") : raw_s
-            if clean_spaces && !has_bpe_space && position(buf) > 0 && !occursin(r"^[.,!?;:\'\"\-—\)\]\}]", s)
-                print(buf, " ")
+            s = tok.inv_vocab[id]
+            if clean_spaces
+                s = replace(s, "Ġ" => " ")
+                s = replace(s, " " => " ")
             end
             print(buf, s)
         end

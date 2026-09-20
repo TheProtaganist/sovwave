@@ -30,7 +30,7 @@ video:
       - 0.0
       - 1.0
       - 1.0
-  render_mode: "potts_model_q_state_domains"
+  render_mode: "spatial_macro_harmonic_centroid"
   target_height: 480
   fps: 24
 model:

@@ -71,9 +71,13 @@ def _wave_forward(layer_params, input_values, t=0.0):
 # ── Pixel → weight decoding (mirrors Julia rgb_frames_to_model) ──────────────
 
 def _decode_pixels(raw_bytes, w, h, num_layers, nodes, embed_dim, omega, beta_s=1.618033988749895):
-    """Decodes FFV1 raw RGB24 bytes into layer parameter dicts."""
+    """Decodes video frames directly into layer parameters using Tournament 8 Centroid Kernel Sampling."""
     bytes_per_frame = w * h * 3
     layers = []
+    bw = max(1, w // embed_dim)
+    bh = max(1, h // nodes)
+    half_k = max(1, bw // 4)
+
     for l_idx in range(num_layers):
         frame_off = l_idx * bytes_per_frame
         amps   = [[0.0]*embed_dim for _ in range(nodes)]
@@ -84,12 +88,25 @@ def _decode_pixels(raw_bytes, w, h, num_layers, nodes, embed_dim, omega, beta_s=
         wspeeds = [1.0]    * nodes
 
         for r in range(nodes):
+            yc = int((r + 0.5) * bh)
             for c in range(embed_dim):
-                px = frame_off + ((r * w) + c) * 3
-                if px + 2 < len(raw_bytes):
-                    r_b = raw_bytes[px]
-                    g_b = raw_bytes[px + 1]
-                    b_b = raw_bytes[px + 2]
+                xc = int((c + 0.5) * bw)
+                r_acc, g_acc, b_acc, count = 0.0, 0.0, 0.0, 0
+                for dy in range(-half_k, half_k + 1):
+                    for dx in range(-half_k, half_k + 1):
+                        px_x = min(w - 1, max(0, xc + dx))
+                        py_y = min(h - 1, max(0, yc + dy))
+                        idx = frame_off + (py_y * w + px_x) * 3
+                        if idx + 2 < len(raw_bytes):
+                            r_acc += raw_bytes[idx]
+                            g_acc += raw_bytes[idx + 1]
+                            b_acc += raw_bytes[idx + 2]
+                            count += 1
+
+                if count > 0:
+                    r_b = r_acc / count
+                    g_b = g_acc / count
+                    b_b = b_acc / count
                     amps[r][c]  = (r_b / 255.0) * 2.0
                     phs[r][c]   = (g_b / 255.0) * (2 * math.pi)
                     freqs[r][c] = max(0.1, (b_b / 255.0) * 4.0)
@@ -165,7 +182,7 @@ class SovwaveModel:
         if meta_path and os.path.isfile(meta_path):
             if _HAS_YAML:
                 with open(meta_path, "r", encoding="utf-8") as f:
-                    meta = yaml.safe_load(f)
+                    meta = _yaml.safe_load(f)
                 model_cfg = meta.get("model", {})
                 nodes      = model_cfg.get("nodes", nodes)
                 embed_dim  = model_cfg.get("embed_dims", embed_dim)
@@ -176,11 +193,11 @@ class SovwaveModel:
             else:
                 print("[sovwave] PyYAML not installed — using default config. Run: pip install pyyaml", file=sys.stderr)
 
-        # ── Extract data stream via ffmpeg ─────────────────────────────────
-        w = embed_dim if embed_dim % 2 == 0 else embed_dim + 1
-        h = nodes     if nodes     % 2 == 0 else nodes     + 1
+        # ── Extract video frames directly via ffmpeg (640x480 standard) ────
+        w = 640
+        h = 480
 
-        raw_bytes = _extract_data_stream(mkv_path, w, h, num_layers)
+        raw_bytes = _extract_data_stream(mkv_path)
         layers    = _decode_pixels(raw_bytes, w, h, num_layers, nodes, embed_dim, omega, beta_s)
         return cls(layers, nodes, embed_dim, omega, t_frames)
 
@@ -215,22 +232,10 @@ class SovwaveModel:
 
 # ── ffmpeg helpers ────────────────────────────────────────────────────────────
 
-def _extract_data_stream(mkv_path, w, h, num_layers):
-    """Extracts the FFV1 data stream (stream 0:v:1) from the MKV."""
-    # Try dedicated data stream first
-    try:
-        cmd = ["ffmpeg", "-loglevel", "error", "-i", mkv_path,
-               "-map", "0:v:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
-        result = subprocess.run(cmd, capture_output=True, check=True)
-        if result.stdout:
-            return bytearray(result.stdout)
-    except subprocess.CalledProcessError:
-        pass
-
-    # Fallback: stream 0:v:0 with downscale
-    downscale = f"scale={w}:{h}:flags=neighbor"
+def _extract_data_stream(mkv_path):
+    """Extracts Stream 0:v:0 RGB24 video frames directly from MKV or MP4."""
     cmd = ["ffmpeg", "-loglevel", "error", "-i", mkv_path,
-           "-map", "0:v:0", "-vf", downscale, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
+           "-map", "0:v:0", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
     result = subprocess.run(cmd, capture_output=True, check=True)
     return bytearray(result.stdout)
 

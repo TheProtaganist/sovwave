@@ -63,9 +63,12 @@ function train_mnist_model(;
                 prototypes[d] ./= norm(prototypes[d])
             end
         end
-        net.model.layers[1].amplitudes[d, :] .= prototypes[d]
-        net.model.layers[1].phases[d, :] .= 0.0
-        net.model.layers[1].frequencies[d, :] .= 1.0
+        for c in 1:64
+            val = prototypes[d][c]
+            net.model.layers[1].amplitudes[d, c] = abs(val)
+            net.model.layers[1].phases[d, c] = val >= 0.0 ? 0.0 : Float64(π)
+            net.model.layers[1].frequencies[d, c] = 1.0
+        end
     end
 
     # 4. Evolutionary Training Configuration

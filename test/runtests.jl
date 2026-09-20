@@ -75,7 +75,7 @@ const Aetheria = Sovwave
         "encoding_tests.jl", "core_tests.jl", "potentials_tests.jl", "simulation_tests.jl",
         "extraction_tests.jl", "protocols_tests.jl", "networks_tests.jl", "persistence_tests.jl",
         # audio & quantum wave computing suite
-        "audio/test_constants.jl", "audio/test_wavefunction.jl", "audio/test_wave_computing.jl", "audio/test_wave_math.jl", "audio/test_waveml.jl", "audio/test_waveml_modules.jl", "audio/test_utf8_multilingual.jl", "audio/test_wave_tokens.jl", "audio/test_mwave_continuous_computing.jl",
+        "audio/test_constants.jl", "audio/test_wavefunction.jl", "audio/test_wave_computing.jl", "audio/test_wave_math.jl", "audio/test_waveml.jl", "audio/test_waveml_modules.jl", "audio/test_utf8_multilingual.jl", "audio/test_wave_tokens.jl", "audio/test_mwave_continuous_computing.jl", "audio/test_sovwave_functions.jl",
         # cross-section suites (final gate)
         "property_tests.jl", "integration_tests.jl",
     )

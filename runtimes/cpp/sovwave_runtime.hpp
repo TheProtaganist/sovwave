@@ -95,6 +95,9 @@ inline std::vector<WaveLayerParams> decode_pixels(
     std::vector<WaveLayerParams> layers;
     layers.reserve(num_layers);
     int bytes_per_frame = w * h * 3;
+    int bw = std::max(1, w / embed_dim);
+    int bh = std::max(1, h / nodes);
+    int half_k = std::max(1, bw / 4);
 
     for (int l = 0; l < num_layers; ++l) {
         WaveLayerParams lp(nodes, embed_dim, omega);
@@ -102,12 +105,32 @@ inline std::vector<WaveLayerParams> decode_pixels(
         int frame_off = l * bytes_per_frame;
 
         for (int r = 0; r < nodes; ++r) {
+            int yc = static_cast<int>(std::round((r + 0.5) * bh));
             for (int c = 0; c < embed_dim; ++c) {
-                int px = frame_off + (r * w + c) * 3;
-                if (px + 2 < static_cast<int>(raw_bytes.size())) {
-                    lp.amplitudes[r][c]   = (raw_bytes[px]     / 255.0) * 2.0;
-                    lp.phases[r][c]       = (raw_bytes[px + 1] / 255.0) * (2.0 * M_PI);
-                    lp.frequencies[r][c]  = std::max(0.1, (raw_bytes[px + 2] / 255.0) * 4.0);
+                int xc = static_cast<int>(std::round((c + 0.5) * bw));
+                double r_acc = 0.0, g_acc = 0.0, b_acc = 0.0;
+                int count = 0;
+                for (int dy = -half_k; dy <= half_k; ++dy) {
+                    for (int dx = -half_k; dx <= half_k; ++dx) {
+                        int px = std::min(w - 1, std::max(0, xc + dx));
+                        int py = std::min(h - 1, std::max(0, yc + dy));
+                        int idx = frame_off + (py * w + px) * 3;
+                        if (idx + 2 < static_cast<int>(raw_bytes.size())) {
+                            r_acc += raw_bytes[idx];
+                            g_acc += raw_bytes[idx + 1];
+                            b_acc += raw_bytes[idx + 2];
+                            count++;
+                        }
+                    }
+                }
+                if (count > 0) {
+                    lp.amplitudes[r][c]  = (r_acc / count / 255.0) * 2.0;
+                    lp.phases[r][c]      = (g_acc / count / 255.0) * (2.0 * M_PI);
+                    lp.frequencies[r][c] = std::max(0.1, (b_acc / count / 255.0) * 4.0);
+                } else {
+                    lp.amplitudes[r][c]  = 0.5;
+                    lp.phases[r][c]      = 0.0;
+                    lp.frequencies[r][c] = 1.0;
                 }
             }
         }
@@ -203,11 +226,11 @@ public:
             }
         }
 
-        int w = (embed_dim % 2 == 0) ? embed_dim : embed_dim + 1;
-        int h = (nodes     % 2 == 0) ? nodes     : nodes     + 1;
+        int w = 640;
+        int h = 480;
 
-        // Extract FFV1 data stream via ffmpeg
-        auto raw = _extract_stream(mkv_path, w, h);
+        // Extract video frames directly from Stream 0:v:0 via ffmpeg
+        auto raw = _extract_stream(mkv_path);
         auto lps = decode_pixels(raw, w, h, num_layers, nodes, embed_dim, omega, beta_s);
         return SovwaveModel(std::move(lps), nodes, embed_dim, omega, t_frames);
     }
@@ -241,18 +264,10 @@ public:
     }
 
 private:
-    static std::vector<uint8_t> _extract_stream(const std::string& path, int w, int h) {
-        // Try data stream (0:v:1) first
-        std::string cmd1 = "ffmpeg -loglevel error -i \"" + path +
-                           "\" -map 0:v:1 -f rawvideo -pix_fmt rgb24 - 2>/dev/null";
-        auto raw = read_pipe(cmd1);
-        if (!raw.empty()) return raw;
-
-        // Fallback: visual stream with downscale
-        std::string cmd2 = "ffmpeg -loglevel error -i \"" + path +
-                           "\" -map 0:v:0 -vf scale=" + std::to_string(w) + ":" + std::to_string(h) +
-                           ":flags=neighbor -f rawvideo -pix_fmt rgb24 -";
-        return read_pipe(cmd2);
+    static std::vector<uint8_t> _extract_stream(const std::string& path) {
+        std::string cmd = "ffmpeg -loglevel error -i \"" + path +
+                          "\" -map 0:v:0 -f rawvideo -pix_fmt rgb24 -";
+        return read_pipe(cmd);
     }
 };
 

@@ -406,7 +406,7 @@ function sonify_step(
     end
 
     s_rate = audio_cfg !== nothing ? audio_cfg.sample_rate : 48000
-    n_chan = audio_cfg !== nothing ? audio_cfg.channels : 2
+    n_chan = audio_cfg !== nothing ? audio_cfg.channels : 1
 
     delta_f = compute_binaural_beat_freq(energy, target_energy)
     n_samples = max(1, round(Int, s_rate * duration))
