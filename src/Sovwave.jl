@@ -91,7 +91,8 @@ export save_tokenizer, load_tokenizer, custom_tokenizer
 export format_tabular, format_text, format_images, format_timeseries, format_jev, format_dataset
 export from_tabular, from_text, from_image, from_timeseries, from_jev_state, num_samples, batch_size, num_batches
 export load_hf_dataset, hf_auth_token, hf_dataset_info
-export generate_text, generate_image, generate_3d, jev_decide, generate_video
+export generate_text, generate_image, generate_3d, jev_decide, generate_video, register_model_type!, list_model_types
+export WaveHead, create_head, apply_head, head_loss, mutate_head!
 export inspect_model, model_summary, parameter_count, num_layers, get_layer, layer_details
 export save_model, load_model, infer, predict, train!, train_text!, train_llm, sonify_model, save_wav
 export forward!, mutate!, crossover, layer_energy, model_energy, init_population, evaluate_population!, evolve_generation!

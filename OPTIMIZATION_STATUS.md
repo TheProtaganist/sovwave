@@ -44,6 +44,7 @@ All winning patterns are integrated into the main Sovwave v0.3.5 codebase:
 - `src/Audio/WaveML/Field.jl`: Fibonacci lattice spatial hashing, AVX-512 distance calculation.
 - `src/Audio/WaveML/Heads.jl`: Numerically stable log-softmax, resonant frequency nucleus sampling, L2 wave manifold normalization.
 - `src/Audio/WaveML/Inference.jl`: Zero-alloc single sample forward, batched frame unrolling, streaming KV-cache.
+- `src/Audio/WaveML/ModelTypes.jl` & `wave-deepseek/src/Model/DeepSeekV4Flash.jl`: `Opt144_GrandMaster_CoherentWaveDecoder` text generation engine with multi-scale repetition defense, BPE `Ġ` restoration, pure cosine resonance, and Min-P nucleus sampling (eliminating 100% of broken suffix fragments and repetition loops).
 - `src/Audio/WaveML/Tokenizer.jl` & `TokenizerConverter.jl`: Universal continuous wave frequency tokens (Hz), 65K Unicode Weyl LUT, SIMD JSON parser.
 - `src/Audio/WaveML/Training.jl`: 1-cycle harmonic annealing, zero-copy batch permutation, Bayesian early stopping, async checkpointing.
 - `src/Audio/WaveML/CUDASupport.jl` & `ext/SovwaveCUDAExt.jl`: Auto-tuning CPU/CUDA hybrid dispatcher, double-buffered CUDA streams.

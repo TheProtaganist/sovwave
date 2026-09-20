@@ -83,6 +83,9 @@ Encodes context into continuous wave embeddings, propagates through quantum laye
 and resonates the output wave state against the tokenizer's vocabulary via fast
 matrix projection and top-k / top-p nucleus sampling.
 """
+const _W_PROJ_CACHE = Dict{Tuple{UInt64, Int}, Matrix{Float64}}()
+const _VALID_MASK_CACHE = Dict{Tuple{UInt64, Bool, Bool, Bool}, BitVector}()
+
 function generate_text(
     model::WaveModel,
     tokenizer::WaveTokenizer,
@@ -90,7 +93,8 @@ function generate_text(
     max_new_tokens::Int = 16,
     temperature::Float64 = 0.7,
     top_k::Int = 50,
-    top_p::Float64 = 0.9
+    top_p::Float64 = 0.9,
+    min_p::Float64 = 0.05
 )::String
     wave_tokens = tokenize(tokenizer, prompt)
     token_ids = [wf.token_id for wf in wave_tokens]
@@ -98,12 +102,51 @@ function generate_text(
     eos_id = tokenizer.special_tokens[:EOS]
     pad_id = tokenizer.special_tokens[:PAD]
 
-    # Pre-compute vocabulary wave packet projection matrix for ultra-fast resonance
     V = length(tokenizer.inv_vocab)
     out_dim = model.model_config.nodes
-    W_proj = Matrix{Float64}(undef, out_dim, V)
-    for k in 1:V
-        W_proj[:, k] = to_wave_packet(tokenizer, k, out_dim)
+    tok_id = objectid(tokenizer)
+
+    # Cached vocabulary wave packet projection matrix for ultra-fast resonance
+    W_proj = get!(_W_PROJ_CACHE, (tok_id, out_dim)) do
+        mat = Matrix{Float64}(undef, out_dim, V)
+        for k in 1:V
+            mat[:, k] = to_wave_packet(tokenizer, k, out_dim)
+        end
+        mat
+    end
+
+    # Detect prompt linguistic domain to prevent cross-language token pollution
+    is_cjk = any(c -> '\u4e00' <= c <= '\u9fff', prompt)
+    is_math = any(c -> c in ['∂', '∇', '∫', '∑', 'ℏ', '≈', '⊕', 'π', 'Ω', 'ψ', 'λ', '≡', '≠', '≤', '≥'], prompt)
+    is_emoji = any(c -> Int(c) > 0x1F000, prompt)
+
+    valid_vocab_mask = get!(_VALID_MASK_CACHE, (tok_id, is_cjk, is_math, is_emoji)) do
+        mask = trues(V)
+        if !is_cjk && !is_math && !is_emoji && V > 500
+            const_common_2letters = Set(["is", "it", "to", "in", "on", "at", "by", "he", "we", "do", "go", "so", "no", "my", "up", "as", "an", "or", "if", "be", "me", "us", "am"])
+            for k in 1:V
+                t = tokenizer.inv_vocab[k]
+                is_valid = (
+                    t in [".", ",", "!", "?", ";", ":", "-", "—"] ||
+                    ((startswith(t, "Ġ") || startswith(t, " ")) && begin
+                        rem = chop(t, head=1, tail=0)
+                        if rem == "a" || rem == "I"
+                            true
+                        elseif length(rem) == 2
+                            lowercase(rem) in const_common_2letters
+                        elseif length(rem) >= 3 && all(c -> isletter(c) || c in "'-\"", rem)
+                            !(length(rem) <= 4 && all(isuppercase, rem))
+                        else
+                            false
+                        end
+                    end) ||
+                    (length(t) == 2 && lowercase(t) in const_common_2letters) ||
+                    (length(t) >= 3 && isuppercase(first(t)) && all(islowercase, SubString(t, nextind(t, 1))))
+                )
+                mask[k] = is_valid
+            end
+        end
+        mask
     end
 
     for _ in 1:max_new_tokens
@@ -120,10 +163,54 @@ function generate_text(
         end
 
         # Fast BLAS matrix projection: resonant dot product across entire vocabulary
-        logits = (W_proj' * output_wave) ./ max(temperature, 1e-4)
+        logits = (transpose(W_proj) * output_wave) ./ max(temperature, 1e-4)
 
-        # Mask padding and special tokens
+        # Mask padding and out-of-domain tokens
         logits[pad_id] = -Inf
+        logits[.!valid_vocab_mask] .= -Inf
+
+        # Multi-scale Repetition Defense (Opt144 Grand Champion)
+        last_id = isempty(token_ids) ? 0 : token_ids[end]
+        penult_id = length(token_ids) >= 2 ? token_ids[end-1] : 0
+        ante_id = length(token_ids) >= 3 ? token_ids[end-2] : 0
+
+        # 1. Immediate 1-gram ban
+        if last_id > 0 && last_id <= V
+            logits[last_id] = -Inf
+        end
+
+        # 2. Strict 2-gram blocking
+        if penult_id > 0 && length(token_ids) >= 4
+            for h in 1:(length(token_ids)-1)
+                if token_ids[h] == penult_id
+                    rep_next = token_ids[h+1]
+                    if rep_next <= V
+                        logits[rep_next] = -Inf
+                    end
+                end
+            end
+        end
+
+        # 3. Strict 3-gram blocking
+        if ante_id > 0 && length(token_ids) >= 6
+            for h in 1:(length(token_ids)-2)
+                if token_ids[h] == ante_id && token_ids[h+1] == penult_id
+                    rep_next = token_ids[h+2]
+                    if rep_next <= V
+                        logits[rep_next] = -Inf
+                    end
+                end
+            end
+        end
+
+        # 4. Multi-scale exponential recency decay and frequency penalty (O(tokens_count))
+        total_toks = length(token_ids)
+        for (idx, prev_id) in enumerate(token_ids)
+            if 1 <= prev_id <= V && isfinite(logits[prev_id])
+                dist = total_toks - idx + 1
+                logits[prev_id] -= 1.5 * (0.85 ^ (dist - 1)) + 0.5
+            end
+        end
 
         # Top-K filtering
         if top_k > 0 && top_k < V
@@ -133,9 +220,20 @@ function generate_text(
         end
 
         # Softmax probabilities
-        max_l = maximum(logits[isfinite.(logits)])
+        finite_mask = isfinite.(logits)
+        if !any(finite_mask)
+            logits .= 0.0
+            finite_mask = trues(V)
+        end
+        max_l = maximum(logits[finite_mask])
         probs = exp.(logits .- max_l)
-        probs[.!isfinite.(logits)] .= 0.0
+        probs[.!finite_mask] .= 0.0
+
+        # Min-P (nucleus thresholding)
+        p_max = maximum(probs)
+        min_thresh = min_p * p_max
+        probs[probs .< min_thresh] .= 0.0
+
         p_sum = sum(probs)
         if p_sum > 1e-12
             probs ./= p_sum
@@ -148,7 +246,6 @@ function generate_text(
             sorted_indices = sortperm(probs, rev=true)
             sorted_probs = probs[sorted_indices]
             cum_probs = cumsum(sorted_probs)
-            # Find cutoff
             cutoff_mask = cum_probs .> top_p
             if any(cutoff_mask)
                 cutoff_idx = findfirst(cutoff_mask)
