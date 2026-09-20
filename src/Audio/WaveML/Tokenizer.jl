@@ -493,6 +493,52 @@ function sonify_tokens(
     return audio
 end
 
+const _GPT2_CHAR_TO_BYTE = let
+    bs = vcat(collect(UInt8(33):UInt8(126)), collect(UInt8(161):UInt8(172)), collect(UInt8(174):UInt8(255)))
+    cs = [Int(b) for b in bs]
+    n = 0
+    for b in 0:255
+        if !(UInt8(b) in bs)
+            push!(bs, UInt8(b))
+            push!(cs, 256 + n)
+            n += 1
+        end
+    end
+    d = Dict{Char, UInt8}()
+    for (b, c) in zip(bs, cs)
+        d[Char(c)] = b
+    end
+    d
+end
+
+"""
+    decode_text_safely(s::String)::String
+
+Safely decodes raw byte-level BPE strings into clean UTF-8 text, converting
+multibyte character sequences (such as Chinese, Cyrillic, emoji) from their byte representations
+to proper UTF-8 strings.
+"""
+function decode_text_safely(s::String)::String
+    has_byte_tokens = any(c -> (haskey(_GPT2_CHAR_TO_BYTE, c) && (Int(c) >= 128 || Int(c) < 32)), s)
+    if !has_byte_tokens
+        return s
+    end
+    raw_bytes = UInt8[]
+    for c in s
+        if haskey(_GPT2_CHAR_TO_BYTE, c)
+            push!(raw_bytes, _GPT2_CHAR_TO_BYTE[c])
+        else
+            for b in codeunits(string(c))
+                push!(raw_bytes, b)
+            end
+        end
+    end
+    if isvalid(String, raw_bytes)
+        return String(raw_bytes)
+    end
+    return s
+end
+
 """
     decode(tok::WaveTokenizer, waveforms::Vector{WaveForm}; clean_spaces::Bool = true)::String
 
@@ -514,7 +560,7 @@ function decode(tok::WaveTokenizer, waveforms::Vector{WaveForm}; clean_spaces::B
             print(buf, s)
         end
     end
-    return String(take!(buf))
+    return decode_text_safely(String(take!(buf)))
 end
 
 """
@@ -542,7 +588,7 @@ function decode(tok::WaveTokenizer, ids::Vector{Int}; clean_spaces::Bool = true)
         end
     end
 
-    return String(take!(buf))
+    return decode_text_safely(String(take!(buf)))
 end
 
 """

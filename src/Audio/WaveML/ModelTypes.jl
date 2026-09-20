@@ -134,14 +134,12 @@ function generate_text(
                             true
                         elseif length(rem) == 2
                             lowercase(rem) in const_common_2letters
-                        elseif length(rem) >= 3 && all(c -> isletter(c) || c in "'-\"", rem)
+                        elseif length(rem) >= 3 && all(c -> (isletter(c) && isascii(c)) || c in "\x27-\x22", rem)
                             !(length(rem) <= 4 && all(isuppercase, rem))
                         else
                             false
                         end
-                    end) ||
-                    (length(t) == 2 && lowercase(t) in const_common_2letters) ||
-                    (length(t) >= 3 && isuppercase(first(t)) && all(islowercase, SubString(t, nextind(t, 1))))
+                    end)
                 )
                 mask[k] = is_valid
             end
