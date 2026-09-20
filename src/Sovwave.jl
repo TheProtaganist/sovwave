@@ -80,7 +80,7 @@ using .Audio.WaveML
 export WaveML
 
 # Re-export WaveML APIs at top-level Sovwave namespace
-export WaveModel, WaveLayer, WaveField, WaveForm, WaveTokenizer, WaveDataset, WaveDataLoader, WaveHead
+export WaveModel, WaveLayer, create_layer, WaveField, WaveForm, WaveTokenizer, WaveDataset, WaveDataLoader, WaveHead
 export WaveMLConfig, WaveFieldConfig, WaveModelConfig, WaveTrainConfig, WaveAudioConfig, WaveVideoConfig
 export default_config, load_config, save_config
 export default_tokenizer, build_tokenizer, tokenize, tokenize_frequencies, token_frequency, token_frequencies, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens, to_wave_packet, encode_sequence, decode_embedding
@@ -96,6 +96,15 @@ export WaveHead, create_head, apply_head, head_loss, mutate_head!
 export inspect_model, model_summary, parameter_count, num_layers, get_layer, layer_details
 export save_model, load_model, infer, predict, train!, train_text!, train_llm, sonify_model, save_wav
 export forward!, mutate!, crossover, layer_energy, model_energy, init_population, evaluate_population!, evolve_generation!
+
+# Continuous Physical Wave Computing & Morphogenetic Dynamics (agenda.md)
+export FlowerOfLifePotential, flower_of_life_potential, compute_flower_of_life_grid!
+export MorphogeneticConfig, MorphogeneticField2D, step_schrodinger!, step_ginzburg_landau!, relax_to_eigenstate!, compute_free_energy, compute_free_energy!
+export CymaticExtractorConfig, extract_cymatic_eigenfrequency, compute_phase_coherence, detect_standing_wave_nodes, cymatic_decode_vocab
+
+# Sound-Native Computing Substrate & Fractal Storage
+export SoundComputeConfig, SoundAcousticBuffer, sound_native_forward!, sound_native_model_forward!
+export FractalLatticeConfig, evaluate_fractal_layer!, compress_layer_to_fractal, get_fractal_param
 
 # Optional GPU acceleration & Hybrid Engine
 export enable_cuda!, disable_cuda!, cuda_available, to_gpu, to_cpu

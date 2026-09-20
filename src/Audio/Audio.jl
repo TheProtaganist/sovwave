@@ -155,6 +155,8 @@ export WaveFieldConfig, WaveModelConfig, WaveTrainConfig, WaveAudioConfig, WaveV
 export load_config, save_config, default_config
 export WaveFieldPoint, WaveField, create_field, propagate_field!, field_energy, reset_field!, evaluate_field
 export WaveLayer, create_layer, forward!, layer_energy, mutate!, crossover
+export SoundComputeConfig, SoundAcousticBuffer, sound_native_forward!, sound_native_model_forward!
+export FractalLatticeConfig, evaluate_fractal_layer!, compress_layer_to_fractal, get_fractal_param
 export WaveModel, model_energy, clone
 export compute_loss, energy_loss, mmd_loss, resonance_loss, interference_loss, wave_accuracy
 export EvolutionState, init_population, evaluate_population!, evolve_generation!

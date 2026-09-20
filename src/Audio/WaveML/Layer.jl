@@ -136,7 +136,20 @@ Computes wave superposition across embeddings and nodes:
 - 70% wave-fidelity (vs 50% discrete)
 - Winner of 144-algorithm tournament
 """
-function forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, output::AbstractVector{Float64}, t::Float64)::AbstractVector{Float64}
+function forward!(
+    layer::WaveLayer,
+    input_values::AbstractVector{Float64},
+    output::AbstractVector{Float64},
+    t::Float64;
+    mode::Symbol = :sound_native,
+    sonify::Bool = false,
+    sound_buf = nothing
+)::AbstractVector{Float64}
+    if mode == :sound_native
+        s_cfg = sonify ? DEFAULT_AUDIBLE_SOUND_CFG : DEFAULT_SILENT_SOUND_CFG
+        return sound_native_forward!(layer, input_values, output, t; cfg=s_cfg, buf=sound_buf)
+    end
+
     n = layer.nodes
     d = layer.embed_dim
     in_len = length(input_values)
@@ -153,18 +166,18 @@ function forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, outpu
         frac_env  = d_f / 1.5                # normalized envelope
         has_speed = v_spd != -1.0
         inv_v     = has_speed ? 1.0 / max(v_spd, 1e-12) : 1.0
+        w_scale   = omega_scaled * inv_v
 
         @fastmath @simd ivdep for j in 1:d
             in_val = j <= in_len ? input_values[j] : 0.5
-            x_eff  = has_speed ? in_val * inv_v : in_val
-            theta  = muladd(omega_scaled * layer.frequencies[i, j], x_eff, layer.phases[i, j] - t)
+            theta  = muladd(layer.frequencies[i, j] * w_scale, in_val, layer.phases[i, j] - t)
             
-            # OPTIMIZED: Sine lookup table (91.6% improvement)
+            # OPTIMIZED: Sine lookup table
             norm_angle = mod(theta, 2π) / (2π)
             idx = Int(floor(norm_angle * SIN_LUT_SIZE)) + 1
             sin_val = SIN_LUT[clamp(idx, 1, SIN_LUT_SIZE)]
             
-            node_sum += layer.amplitudes[i, j] * sin_val
+            node_sum = muladd(layer.amplitudes[i, j], sin_val, node_sum)
         end
 
         node_wave = (node_sum * inv_sqrt_d) * beta * frac_env
@@ -177,12 +190,12 @@ function forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, outpu
 end
 
 """
-    forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, t::Float64)::Vector{Float64}
+    forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, t::Float64; kwargs...)::Vector{Float64}
 
 Convenience allocating wrapper for `forward!`.
 """
-forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, t::Float64) =
-    forward!(layer, input_values, Vector{Float64}(undef, layer.nodes), t)
+forward!(layer::WaveLayer, input_values::AbstractVector{Float64}, t::Float64; kwargs...) =
+    forward!(layer, input_values, Vector{Float64}(undef, layer.nodes), t; kwargs...)
 
 """
     layer_energy(layer::WaveLayer)::Float64

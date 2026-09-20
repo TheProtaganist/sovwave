@@ -31,6 +31,8 @@ include("Config.jl")
 include("Field.jl")
 include("Layer.jl")
 include("Model.jl")
+include("SoundCompute.jl")
+include("FractalStorage.jl")
 include("Loss.jl")
 include("Evolution.jl")
 include("HuggingFace.jl")
@@ -58,6 +60,12 @@ export create_field, propagate_field!, field_energy, reset_field!, evaluate_fiel
 # Public exports: Layer
 export WaveLayer
 export create_layer, forward!, layer_energy, mutate!, crossover
+
+# Public exports: Sound-Native Computing Substrate
+export SoundComputeConfig, SoundAcousticBuffer, sound_native_forward!, sound_native_model_forward!
+
+# Public exports: Fractal Storage & Continuous Compression
+export FractalLatticeConfig, evaluate_fractal_layer!, compress_layer_to_fractal, get_fractal_param
 
 # Public exports: Model
 export WaveModel

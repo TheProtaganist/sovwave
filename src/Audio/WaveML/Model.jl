@@ -73,7 +73,20 @@ end
 Executes an end-to-end forward wave pass across all l layers with temporal superposition
 in-place into `output` with zero heap allocations.
 """
-function forward!(model::WaveModel, input_data::AbstractVector{Float64}, output::AbstractVector{Float64}; t::Float64 = 0.0)::AbstractVector{Float64}
+function forward!(
+    model::WaveModel,
+    input_data::AbstractVector{Float64},
+    output::AbstractVector{Float64};
+    t::Float64 = 0.0,
+    mode::Symbol = :sound_native,
+    sonify::Bool = false,
+    sound_buf = nothing
+)::AbstractVector{Float64}
+    if mode == :sound_native
+        s_cfg = sonify ? DEFAULT_AUDIBLE_SOUND_CFG : DEFAULT_SILENT_SOUND_CFG
+        return sound_native_model_forward!(model, input_data, output; t=t, cfg=s_cfg, buf=sound_buf)
+    end
+
     in_len = length(input_data)
     max_nodes = isempty(model.layers) ? 0 : maximum(l.nodes for l in model.layers)
     needed = max(in_len, max_nodes, model.model_config.embed_dims)
@@ -104,7 +117,7 @@ function forward!(model::WaveModel, input_data::AbstractVector{Float64}, output:
 
         for frame in 1:t_frames
             t_offset = muladd(2π * (frame - 1), inv_omega, t)
-            forward!(layer, in_buf, frame_buf, t_offset)
+            forward!(layer, in_buf, frame_buf, t_offset; mode=mode, sonify=sonify, sound_buf=sound_buf)
             @simd for k in 1:n
                 accum[k] += frame_buf[k]
             end
@@ -128,15 +141,15 @@ function forward!(model::WaveModel, input_data::AbstractVector{Float64}, output:
 end
 
 """
-    forward!(model::WaveModel, input_data::AbstractVector{Float64}; t::Float64 = 0.0)::Vector{Float64}
+    forward!(model::WaveModel, input_data::AbstractVector{Float64}; t::Float64 = 0.0, kwargs...)::Vector{Float64}
 
 Executes an end-to-end forward wave pass across all l layers with temporal superposition.
 Allocates only a single output vector.
 """
-function forward!(model::WaveModel, input_data::AbstractVector{Float64}; t::Float64 = 0.0)::Vector{Float64}
+function forward!(model::WaveModel, input_data::AbstractVector{Float64}; t::Float64 = 0.0, kwargs...)::Vector{Float64}
     out_dim = isempty(model.layers) ? length(input_data) : model.layers[end].nodes
     out = Vector{Float64}(undef, out_dim)
-    forward!(model, input_data, out; t=t)
+    forward!(model, input_data, out; t=t, kwargs...)
     return out
 end
 
