@@ -122,25 +122,35 @@ function generate_text(
 
     valid_vocab_mask = get!(_VALID_MASK_CACHE, (tok_id, is_cjk, is_math, is_emoji)) do
         mask = trues(V)
+        has_bpe_space = haskey(tokenizer.vocab, "Ġthe") || haskey(tokenizer.vocab, " the")
         if !is_cjk && !is_math && !is_emoji && V > 500
             const_common_2letters = Set(["is", "it", "to", "in", "on", "at", "by", "he", "we", "do", "go", "so", "no", "my", "up", "as", "an", "or", "if", "be", "me", "us", "am"])
             for k in 1:V
                 t = tokenizer.inv_vocab[k]
-                is_valid = (
-                    t in [".", ",", "!", "?", ";", ":", "-", "—"] ||
-                    ((startswith(t, "Ġ") || startswith(t, " ")) && begin
-                        rem = chop(t, head=1, tail=0)
-                        if rem == "a" || rem == "I"
-                            true
-                        elseif length(rem) == 2
-                            lowercase(rem) in const_common_2letters
-                        elseif length(rem) >= 3 && all(c -> (isletter(c) && isascii(c)) || c in "\x27-\x22", rem)
-                            !(length(rem) <= 4 && all(isuppercase, rem))
-                        else
-                            false
-                        end
-                    end)
-                )
+                is_valid = if has_bpe_space
+                    (
+                        t in [".", ",", "!", "?", ";", ":", "-", "—"] ||
+                        ((startswith(t, "Ġ") || startswith(t, " ")) && begin
+                            rem = chop(t, head=1, tail=0)
+                            if rem == "a" || rem == "I"
+                                true
+                            elseif length(rem) == 2
+                                lowercase(rem) in const_common_2letters
+                            elseif length(rem) >= 3 && all(c -> (isletter(c) && isascii(c)) || c in "\x27-\x22", rem)
+                                !(length(rem) <= 4 && all(isuppercase, rem))
+                            else
+                                false
+                            end
+                        end)
+                    )
+                else
+                    (
+                        t in [".", ",", "!", "?", ";", ":", "-", "—"] ||
+                        (length(t) == 1 && (t == "a" || t == "I" || t == "A")) ||
+                        (length(t) == 2 && lowercase(t) in const_common_2letters) ||
+                        (length(t) >= 3 && all(c -> (isletter(c) && isascii(c)) || c in "\x27-\x22", t))
+                    )
+                end
                 mask[k] = is_valid
             end
         end

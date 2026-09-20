@@ -98,6 +98,10 @@ function train!(
 
     t_train_start = time_ns()
 
+    c_freq = carrier_frequency !== nothing ? carrier_frequency :
+             (audio_cfg !== nothing ? audio_cfg.carrier_frequency : model.model_config.omega)
+    audio_stream = cfg.sonify ? ContinuousAudioStream(carrier_frequency=c_freq, sample_rate=cfg.audio_sample_rate) : nothing
+
     if verbose
         println("="^78)
         println(" ⚡ WAVEML PURE WAVE COMPUTING: TRAINING INITIALIZED ⚡")
@@ -106,10 +110,10 @@ function train!(
                 n_samples, batch_size, epochs, cfg.population_size)
         @printf("  Base Mutation Rate (lr): %.4f | Energy Target: %.6f\n",
                 base_lr, cfg.energy_target)
-        if audio_cfg !== nothing || carrier_frequency !== nothing
-            c_freq = carrier_frequency !== nothing ? carrier_frequency : audio_cfg.carrier_frequency
-            @printf("  User-Defined Carrier Frequency: %.2f Hz | Waveform: %s\n",
-                    c_freq, audio_cfg !== nothing ? string(audio_cfg.waveform) : "physical")
+        if audio_cfg !== nothing || carrier_frequency !== nothing || cfg.sonify
+            @printf("  Carrier Frequency: %.2f Hz | Waveform: %s | Sonification: %s\n",
+                    c_freq, audio_cfg !== nothing ? string(audio_cfg.waveform) : "physical",
+                    cfg.sonify ? "ENABLED (432 Hz Gamma-to-Epsilon continuous beat)" : "disabled")
         end
         println("-"^78)
     end
@@ -117,14 +121,10 @@ function train!(
     for ep in 1:epochs
         t_epoch_start = time_ns()
 
-        # Champion 1Cycle Harmonic Annealing Schedule:
-        # Warmup phase (first 30%), followed by cosine decay
+        # Champion Opt02 Golden Ratio Harmonic Damping Schedule:
         pct = Float64(ep) / Float64(epochs)
-        current_lr = if pct < 0.3
-            base_lr * (pct / 0.3 + 0.1)
-        else
-            base_lr * (0.5 * (1.0 + cos(π * (pct - 0.3) / 0.7)))
-        end
+        phi = 1.618033988749895
+        current_lr = base_lr * (pct < 0.2 ? (pct / 0.2 + 0.1) : exp(-phi * (pct - 0.2)))
         state.mutation_rate = current_lr
 
         # Mini-batch or full-batch sampling
@@ -135,7 +135,7 @@ function train!(
         # Evaluate population over batch
         best_e = evaluate_population!(state, b_inputs, b_targets; loss_type=:mmd)
 
-        # Champion Island Model Evolution
+        # Champion Morphogenetic Phase Diffusion Evolution
         evolve_generation!(state, cfg.elite_fraction)
 
         # Measure timing and throughput
@@ -162,23 +162,32 @@ function train!(
             history.best_epoch = ep
         end
 
-        # Sonification: hear the training as sound with user-defined sound parameters
+        # Continuous Binaural Beat Tracking (Gamma -> Beta -> Alpha -> Theta -> Delta -> Epsilon)
+        c_freq = carrier_frequency !== nothing ? carrier_frequency :
+                 (audio_cfg !== nothing ? audio_cfg.carrier_frequency : model.model_config.omega)
+        delta_f = compute_binaural_beat_freq(best_e, cfg.energy_target)
+        bw_band, bw_detail = brainwave_state(delta_f, best_e <= cfg.energy_target)
+
+        # Sonification: hear the continuous training sound without discrete stops
         if cfg.sonify
+            if audio_stream !== nothing
+                step_continuous_audio!(audio_stream, best_e, cfg.energy_target; duration=0.08)
+            end
+
             audio_cue = sonify_step(
                 best_e,
                 state.best_model;
                 audio_cfg = audio_cfg,
-                carrier_frequency = carrier_frequency
+                carrier_frequency = c_freq,
+                target_energy = cfg.energy_target
             )
 
-            # Option 1: Live real-time speaker audio
             if cfg.sonify_realtime
                 p = audio_cfg !== nothing ? audio_cfg.realtime_player : "auto"
                 sr = audio_cfg !== nothing ? audio_cfg.sample_rate : cfg.audio_sample_rate
                 play_realtime!(audio_cue; sample_rate=sr, player=p)
             end
 
-            # Option 2: Save periodic audio files
             if audio_save_dir !== nothing && (ep % 10 == 0 || ep == epochs)
                 mkpath(audio_save_dir)
                 wav_path = joinpath(audio_save_dir, @sprintf("wave_epoch_%03d.wav", ep))
@@ -186,19 +195,29 @@ function train!(
                 full_layer_audio = sonify_model(
                     state.best_model;
                     audio_cfg = audio_cfg,
-                    carrier_frequency = carrier_frequency,
+                    carrier_frequency = c_freq,
                     duration = 0.3
                 )
                 save_wav(full_layer_audio, wav_path; sample_rate=sr)
             end
         end
 
-        if verbose && (ep % 5 == 0 || ep == 1 || ep == epochs)
-            @printf("  Epoch %3d/%3d | Energy: %8.5f | Acc: %5.1f%% | Calc: %6.2f ms | %9.1f pts/s | lr: %.4f\n",
-                    ep, epochs, best_e, acc * 100.0, calc_ms, thru, current_lr)
+        # Bold Green Continuous Terminal Progress Bar
+        if verbose
+            bar_width = 18
+            filled = round(Int, pct * bar_width)
+            unfilled = bar_width - filled
+            bar_str = "\e[1;32m" * repeat("█", filled) * "\e[2;32m" * repeat("░", unfilled) * "\e[0m"
+            eta_sec = thru > 0 ? ((epochs - ep) * total_pts_evaluated / thru) : 0.0
+            eta_str = eta_sec < 60.0 ? @sprintf("%.1fs", eta_sec) : @sprintf("%.1fm", eta_sec / 60.0)
+
+            print("\r\e[K")
+            @printf("\e[1;32m[SOVWAVE EVOLUTION]\e[0m %s %5.1f%% | Ep %3d/%3d | E: \e[1;32m%.5f\e[0m (tgt: %.4f) | Acc: %5.1f%% | \e[1;36m[%s: %s]\e[0m | %7.0f pts/s | ETA: %s",
+                    bar_str, pct * 100.0, ep, epochs, best_e, cfg.energy_target, acc * 100.0, bw_band, bw_detail, thru, eta_str)
+            flush(stdout)
         end
 
-        # 💾 Checkpoint MKV Saving: Save model state for resume and viewing
+        # 💾 Checkpoint MKV Saving: Fluid continuous cymatic heatmap video representation
         if checkpoint_dir !== nothing && (ep % checkpoint_every == 0 || ep == epochs)
             mkpath(checkpoint_dir)
             ckpt_path = joinpath(checkpoint_dir, @sprintf("checkpoint_epoch_%04d.mkv", ep))
@@ -206,31 +225,51 @@ function train!(
                 save_model(
                     state.best_model, 
                     ckpt_path; 
-                    video_cfg = WaveVideoConfig(frames=8, fps=4, render_mode=:potts_model_q_state_domains),
+                    video_cfg = WaveVideoConfig(frames=48, fps=24, render_mode=:potts_model_q_state_domains),
                     audio_cfg = audio_cfg,
-                    include_audio = false,  # Skip audio in checkpoints for speed
-                    export_mp4 = true  # Export viewable MP4 alongside MKV
+                    include_audio = cfg.sonify,
+                    export_mp4 = true
                 )
                 if verbose && ep % checkpoint_every == 0
+                    print("\r\e[K")
                     @printf("  💾 Checkpoint saved: %s (%.1f KB)\n", ckpt_path, filesize(ckpt_path)/1024)
                 end
             catch e
                 if verbose
+                    print("\r\e[K")
                     @printf("  ⚠️  Checkpoint save failed: %s\n", e)
                 end
             end
         end
 
-        # Champion Bayesian Ground-State Early Stopping
+        # Champion Ground-State Early Stopping: Locks when Delta f reaches Epsilon 0.0 Hz
         if best_e <= cfg.energy_target
             if verbose
-                @printf("  🎯 Ground-state energy target achieved at epoch %d (Energy: %.6f)\n", ep, best_e)
+                print("\r\e[K")
+                @printf("\e[1;32m  🎯 Ground-state reached at epoch %d | Energy: %.6f <= Target: %.6f | Binaural Beat: Epsilon 0.00 Hz Locked\e[0m\n", ep, best_e, cfg.energy_target)
             end
             break
         end
     end
 
     history.total_time_sec = (time_ns() - t_train_start) / 1e9
+
+    if cfg.sonify && audio_stream !== nothing
+        target_dir = audio_save_dir !== nothing ? audio_save_dir : checkpoint_dir
+        if target_dir !== nothing
+            try
+                mkpath(target_dir)
+                session_wav = joinpath(target_dir, "continuous_training_sound.wav")
+                accum_audio = get_accumulated_audio(audio_stream)
+                save_wav(accum_audio, session_wav; sample_rate=cfg.audio_sample_rate)
+                if verbose
+                    @printf("  🔊 Continuous 432 Hz training audio saved: %s (%.1f s)\n",
+                            session_wav, size(accum_audio, 2) / cfg.audio_sample_rate)
+                end
+            catch
+            end
+        end
+    end
 
     if verbose
         println("-"^78)

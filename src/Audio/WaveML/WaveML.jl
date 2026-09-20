@@ -88,9 +88,9 @@ export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokeni
 export save_tokenizer, load_tokenizer, custom_tokenizer
 
 # Public exports: Dataset
-export WaveDataset, WaveDataLoader
-export format_tabular, format_text, format_images, format_timeseries, format_jev, format_dataset
-export from_tabular, from_text, from_image, from_timeseries, from_jev_state
+export WaveDataset, WaveDataLoader, WaveDataStreamer
+export format_tabular, format_text, format_lm_text, format_images, format_timeseries, format_jev, format_dataset
+export process_pixel_waves, process_wave_tokens, process_digital_data, stream_dataset
 export num_samples, batch_size, num_batches
 
 # Public exports: HuggingFace
@@ -111,6 +111,7 @@ export TrainingMetrics, TrainingHistory, train!, train_text!, train_llm
 
 # Public exports: Serialization
 export save_model, load_model, model_to_rgb_frames, rgb_frames_to_model, model_to_visual_frames, emergent_color
+export serialize_wave_model_binary, deserialize_wave_model_binary
 
 # Public exports: Inference
 export infer, predict

@@ -17,6 +17,7 @@ No sound properties are hardcoded:
 using Printf
 
 export sonify_model, sonify_step, save_wav, play_realtime!
+export ContinuousAudioStream, step_continuous_audio!, get_accumulated_audio, compute_binaural_beat_freq, brainwave_state
 
 """
     compute_envelope(t::Float64, duration::Float64, env_type::Symbol, a::Float64, d::Float64, s::Float64, r::Float64)::Float64
@@ -248,52 +249,188 @@ function sonify_model(
 end
 
 """
+    compute_binaural_beat_freq(energy::Float64, target_energy::Float64; max_beat::Float64 = 60.0)::Float64
+
+Computes continuous binaural beat frequency Δf(E).
+The carrier stays strictly at 432 Hz (or user-defined frequency).
+Δf smoothly transitions from chaotic Gamma (40-60 Hz) down through Beta, Alpha, Theta, Delta,
+and asymptotically approaches Epsilon (0.5 Hz) while energy > target_energy.
+It ONLY reaches 0.0 Hz (true ground state phase-lock) if energy <= target_energy.
+"""
+function compute_binaural_beat_freq(energy::Float64, target_energy::Float64; max_beat::Float64 = 60.0)::Float64
+    if energy <= target_energy
+        return 0.0 # Pure ground-state phase lock at 432 Hz
+    end
+    e_rel = max(0.0, energy - target_energy)
+    epsilon_min = 0.5
+    delta_f = epsilon_min + (max_beat - epsilon_min) * (e_rel / (0.5 + e_rel))
+    return delta_f
+end
+
+"""
+    brainwave_state(delta_f::Float64, reached_ground::Bool)::Tuple{String, String}
+
+Returns the brainwave classification and frequency label for a given binaural beat frequency.
+"""
+function brainwave_state(delta_f::Float64, reached_ground::Bool)::Tuple{String, String}
+    if reached_ground || delta_f <= 0.05
+        return ("Epsilon", "0.00 Hz (Ground State Locked 🎯)")
+    elseif delta_f <= 0.5
+        return ("Epsilon", @sprintf("%.2f Hz (Asymptotic)", delta_f))
+    elseif delta_f <= 4.0
+        return ("Delta", @sprintf("%.1f Hz", delta_f))
+    elseif delta_f <= 8.0
+        return ("Theta", @sprintf("%.1f Hz", delta_f))
+    elseif delta_f <= 14.0
+        return ("Alpha", @sprintf("%.1f Hz", delta_f))
+    elseif delta_f <= 35.0
+        return ("Beta", @sprintf("%.1f Hz", delta_f))
+    else
+        return ("Gamma", @sprintf("%.1f Hz (Chaotic)", delta_f))
+    end
+end
+
+"""
+    ContinuousAudioStream
+
+Accumulates seamless, continuous audio samples without discrete start/stop gaps.
+Preserves phase continuity across evolutionary training steps.
+"""
+mutable struct ContinuousAudioStream
+    sample_rate::Int
+    carrier_frequency::Float64
+    phase_l::Float64
+    phase_r::Float64
+    buffer_l::Vector{Float64}
+    buffer_r::Vector{Float64}
+
+    function ContinuousAudioStream(;
+        sample_rate::Int = 48000,
+        carrier_frequency::Float64 = 432.0
+    )
+        new(sample_rate, carrier_frequency, 0.0, 0.0, Float64[], Float64[])
+    end
+end
+
+"""
+    step_continuous_audio!(stream::ContinuousAudioStream, energy::Float64, target_energy::Float64; duration=0.08, volume=0.8)
+
+Appends continuous audio samples to the stream without phase clicks or silence gaps.
+"""
+function step_continuous_audio!(
+    stream::ContinuousAudioStream,
+    energy::Float64,
+    target_energy::Float64;
+    duration::Float64 = 0.08,
+    volume::Float64 = 0.8
+)::Matrix{Float64}
+    delta_f = compute_binaural_beat_freq(energy, target_energy)
+    fc = stream.carrier_frequency
+    sr = stream.sample_rate
+    n_samples = max(1, round(Int, sr * duration))
+    dt = 1.0 / sr
+
+    f_left = fc - delta_f * 0.5
+    f_right = fc + delta_f * 0.5
+
+    # Subtle chaotic phase jitter in high Gamma band far from ground state
+    chaos = delta_f > 35.0 ? (0.02 * sin(2π * 7.83 * (length(stream.buffer_l) * dt))) : 0.0
+
+    chunk = Matrix{Float64}(undef, 2, n_samples)
+    @inbounds for s in 1:n_samples
+        stream.phase_l += 2π * (f_left + chaos) * dt
+        stream.phase_r += 2π * f_right * dt
+
+        if stream.phase_l > 2π; stream.phase_l -= 2π; end
+        if stream.phase_r > 2π; stream.phase_r -= 2π; end
+
+        val_l = volume * sin(stream.phase_l)
+        val_r = volume * sin(stream.phase_r)
+
+        chunk[1, s] = val_l
+        chunk[2, s] = val_r
+
+        push!(stream.buffer_l, val_l)
+        push!(stream.buffer_r, val_r)
+    end
+    return chunk
+end
+
+"""
+    get_accumulated_audio(stream::ContinuousAudioStream)::Matrix{Float64}
+
+Returns the full contiguous 2xN stereo matrix of accumulated training audio.
+"""
+function get_accumulated_audio(stream::ContinuousAudioStream)::Matrix{Float64}
+    n = length(stream.buffer_l)
+    mat = Matrix{Float64}(undef, 2, n)
+    @inbounds for i in 1:n
+        mat[1, i] = stream.buffer_l[i]
+        mat[2, i] = stream.buffer_r[i]
+    end
+    return mat
+end
+
+"""
     sonify_step(
         energy::Float64,
         model::WaveModel;
         audio_cfg::Union{Nothing, WaveAudioConfig} = nothing,
         carrier_frequency::Union{Nothing, Float64} = nothing,
-        duration::Float64 = 0.08
+        target_energy::Float64 = 0.001,
+        duration::Float64 = 0.08,
+        stream::Union{Nothing, ContinuousAudioStream} = nothing
     )::Union{Vector{Float64}, Matrix{Float64}}
 
 Generates an audio cue during training reflecting the model's ground-state convergence.
-Pitch tracks the user-defined carrier frequency as energy minimizes.
+Carrier stays strictly at 432 Hz (or user-defined frequency).
+Binaural beat Δf transitions from Gamma (chaotic) down through Beta, Alpha, Theta, Delta,
+and asymptotically approaches Epsilon (0.5 Hz) until ground state is reached (0.0 Hz).
 """
 function sonify_step(
     energy::Float64,
     model::WaveModel;
     audio_cfg::Union{Nothing, WaveAudioConfig} = nothing,
     carrier_frequency::Union{Nothing, Float64} = nothing,
-    duration::Float64 = 0.08
+    target_energy::Float64 = 0.001,
+    duration::Float64 = 0.08,
+    stream::Union{Nothing, ContinuousAudioStream} = nothing
 )::Union{Vector{Float64}, Matrix{Float64}}
 
     c_freq = carrier_frequency !== nothing ? carrier_frequency :
              (audio_cfg !== nothing ? audio_cfg.carrier_frequency : model.model_config.omega)
-    s_rate = audio_cfg !== nothing ? audio_cfg.sample_rate : 48000
-    n_chan = audio_cfg !== nothing ? audio_cfg.channels : 1
     vol = audio_cfg !== nothing ? audio_cfg.volume : 0.8
 
-    n_samples = round(Int, s_rate * duration)
+    if stream !== nothing
+        return step_continuous_audio!(stream, energy, target_energy; duration=duration, volume=vol)
+    end
+
+    s_rate = audio_cfg !== nothing ? audio_cfg.sample_rate : 48000
+    n_chan = audio_cfg !== nothing ? audio_cfg.channels : 2
+
+    delta_f = compute_binaural_beat_freq(energy, target_energy)
+    n_samples = max(1, round(Int, s_rate * duration))
     t_step = 1.0 / s_rate
-    # Pitch tracks toward carrier frequency as ground state energy -> 0
-    pitch = c_freq * (1.0 + clamp(energy, 0.0, 4.0))
 
     if n_chan == 1
         buf = Vector{Float64}(undef, n_samples)
+        # In mono, modulate carrier with subtle beating that vanishes smoothly at 0 Hz beat
+        beat_mod_depth = min(1.0, delta_f / 60.0)
         @inbounds for s in 1:n_samples
             t = (s - 1) * t_step
-            env = (1.0 - t / duration)^2
-            buf[s] = vol * env * (0.7 * sin(2π * pitch * t) + 0.3 * sin(2π * pitch * 1.5 * t))
+            beat_factor = (1.0 + beat_mod_depth * cos(2π * delta_f * t)) / (1.0 + beat_mod_depth)
+            buf[s] = vol * sin(2π * c_freq * t) * beat_factor
         end
         return buf
     else
         buf = Matrix{Float64}(undef, 2, n_samples)
-        beat = audio_cfg !== nothing ? audio_cfg.binaural_beat : 10.0
+        f_left = c_freq - delta_f * 0.5
+        f_right = c_freq + delta_f * 0.5
+        chaos = delta_f > 35.0 ? (0.02 * sin(2π * 7.83 * t_step)) : 0.0
         @inbounds for s in 1:n_samples
             t = (s - 1) * t_step
-            env = (1.0 - t / duration)^2
-            buf[1, s] = vol * env * sin(2π * (pitch - beat*0.5) * t)
-            buf[2, s] = vol * env * sin(2π * (pitch + beat*0.5) * t)
+            buf[1, s] = vol * sin(2π * (f_left + chaos) * t)
+            buf[2, s] = vol * sin(2π * f_right * t)
         end
         return buf
     end

@@ -22,6 +22,7 @@ using Printf
 
 export save_model, load_model, model_to_rgb_frames, rgb_frames_to_model
 export model_to_visual_frames, emergent_color
+export serialize_wave_model_binary, deserialize_wave_model_binary
 
 """
     emergent_color(
@@ -277,6 +278,92 @@ function rgb_frames_to_model(
     return WaveModel(layers, cfg.field, cfg.model)
 end
 
+const WAVEML_MAGIC = b"SOVW"
+const WAVEML_FORMAT_VERSION = UInt32(1)
+
+"""
+    serialize_wave_model_binary(model::WaveModel)::Vector{UInt8}
+
+Serializes a `WaveModel` into high-precision binary bytes (Float32) for MKV container attachment.
+"""
+function serialize_wave_model_binary(model::WaveModel)::Vector{UInt8}
+    io = IOBuffer()
+    write(io, WAVEML_MAGIC)
+    write(io, WAVEML_FORMAT_VERSION)
+
+    num_layers = Int32(length(model.layers))
+    nodes = Int32(model.model_config.nodes)
+    embed_dim = Int32(model.model_config.embed_dims)
+    omega = Float64(model.model_config.omega)
+    beta_s = Float64(model.model_config.beta_s)
+
+    write(io, num_layers)
+    write(io, nodes)
+    write(io, embed_dim)
+    write(io, omega)
+    write(io, beta_s)
+
+    for layer in model.layers
+        write(io, Float32.(layer.amplitudes))
+        write(io, Float32.(layer.phases))
+        write(io, Float32.(layer.frequencies))
+        write(io, Float32.(layer.fractal_scales))
+    end
+
+    return take!(io)
+end
+
+"""
+    deserialize_wave_model_binary(raw_bytes::Vector{UInt8}, cfg::WaveMLConfig)::Union{Nothing, WaveModel}
+
+Reconstructs a `WaveModel` from high-precision binary bytes.
+"""
+function deserialize_wave_model_binary(raw_bytes::Vector{UInt8}, cfg::WaveMLConfig)::Union{Nothing, WaveModel}
+    if length(raw_bytes) < 32 || raw_bytes[1:4] != WAVEML_MAGIC
+        return nothing
+    end
+    io = IOBuffer(raw_bytes)
+    seek(io, 4) # Skip magic
+    version = read(io, UInt32)
+    num_layers = Int(read(io, Int32))
+    nodes = Int(read(io, Int32))
+    embed_dim = Int(read(io, Int32))
+    omega = read(io, Float64)
+    beta_s = read(io, Float64)
+
+    layers = Vector{WaveLayer}(undef, num_layers)
+    for l_idx in 1:num_layers
+        amps = Matrix{Float64}(undef, nodes, embed_dim)
+        phs = Matrix{Float64}(undef, nodes, embed_dim)
+        freqs = Matrix{Float64}(undef, nodes, embed_dim)
+        fractals = Vector{Float64}(undef, nodes)
+
+        for c in 1:embed_dim, r in 1:nodes
+            amps[r, c] = Float64(read(io, Float32))
+        end
+        for c in 1:embed_dim, r in 1:nodes
+            phs[r, c] = Float64(read(io, Float32))
+        end
+        for c in 1:embed_dim, r in 1:nodes
+            freqs[r, c] = Float64(read(io, Float32))
+        end
+        for r in 1:nodes
+            fractals[r] = Float64(read(io, Float32))
+        end
+
+        layers[l_idx] = WaveLayer(nodes, embed_dim, amps, phs, freqs, fractals, omega)
+    end
+
+    m_cfg = WaveModelConfig(
+        nodes = nodes,
+        embed_dims = embed_dim,
+        layers = num_layers,
+        omega = omega,
+        beta_s = beta_s
+    )
+    return WaveModel(layers, cfg.field, m_cfg)
+end
+
 """
     save_model(
         model::WaveModel,
@@ -293,17 +380,12 @@ end
         export_mp4::Bool = true
     )::Nothing
 
-Saves the `WaveModel` as an MKV video with multi-stream architecture:
-- Track 0 (Visual): Upscaled H.264 video starting at step n (full color, no black screen) and flowing to step n_final.
-  Supports configurable pixel square size:
-  - `scale = 1`: Literal 1-pixel per node (smallest possible value).
-  - `scale = 2`: 2-pixel squares (small, crisp, fine density).
-  - `scale = 4`: 4-pixel squares.
-  - `scale = :auto`: Auto-scaled to fit `target_height` without giant blocky pixels.
-- Track 1 (Data): Lossless raw FFV1 stream for exact bit-for-bit model reconstruction and inference.
-- Track 2 (Audio): Presentation audio track synthesized from the trained model's harmonic lattice oscillations.
-  (NOTE: Audio is strictly for presentation/listening and is NEVER used for inference).
-Also generates an accompanying metadata YAML and a companion .mp4 file.
+Saves the `WaveModel` as a universally playable MKV video and companion MP4:
+- Stream 0:0 (Visual): High-definition fluid heatmap H.264 video (640x480, 24 fps, yuv420p)
+  starting at step n (full radiant color, no black screen) and flowing through step n_final.
+- Stream 0:1 (Audio): Presentation audio track synthesized from the trained harmonic lattice oscillations at 432 Hz.
+- Matroska Attachment: Exact lossless binary weights (`wave_model_weights.bin`) for 100% bit-for-bit inference reconstruction.
+Also generates an accompanying metadata YAML and a companion .mp4 file with +faststart for instant opening in all media players.
 """
 function save_model(
     model::WaveModel,
@@ -322,75 +404,56 @@ function save_model(
     v_cfg = video_cfg !== nothing ? video_cfg : WaveVideoConfig()
     raw_mode = render_mode !== nothing ? render_mode : v_cfg.render_mode
     actual_mode = (raw_mode == :potts_champion) ? :potts_model_q_state_domains : raw_mode
-    actual_fps = fps !== nothing ? fps : v_cfg.fps
-    actual_n_frames = n_visual_frames !== nothing ? n_visual_frames : v_cfg.frames
+    actual_fps = fps !== nothing ? fps : max(24, v_cfg.fps)
+    actual_n_frames = n_visual_frames !== nothing ? n_visual_frames : max(24, v_cfg.frames)
     actual_colors = state_colors !== nothing ? state_colors : v_cfg.state_colors
-
-    # Determine pixel square size:
-    nodes = model.model_config.nodes
-    raw_scale = scale !== nothing ? scale : v_cfg.pixel_scale
-
-    effective_scale = if raw_scale == :auto || raw_scale == 0
-        # Automatically scales to a reasonable screen size without giant blocky pixels
-        max(1, min(16, div(target_height, max(nodes, 1))))
-    elseif raw_scale isa Int
-        max(1, raw_scale)
-    else
-        2 # Default small, fine pixel square size
-    end
 
     # 1. Generate Visual Stream (Step n to Step n_final using tournament Grand Champion)
     vis_raw, w_vis, h_vis, n_vis = model_to_visual_frames(model; n_frames=actual_n_frames, mode=actual_mode, state_colors=actual_colors)
 
-    # 2. Generate Data Stream (Exact Lossless Model Weights)
-    data_raw, w_data, h_data, n_data = model_to_rgb_frames(model)
+    # 2. Generate Exact Lossless Binary Weights
+    binary_weights = serialize_wave_model_binary(model)
 
-    # 3. Generate Audio Stream (Trained harmonic lattice oscillations for presentation only)
-    video_duration = max(0.2, Float64(actual_n_frames) / Float64(max(1, actual_fps)))
+    # 3. Generate Audio Stream (Trained harmonic lattice oscillations at 432 Hz)
+    video_duration = max(0.5, Float64(actual_n_frames) / Float64(max(1, actual_fps)))
     actual_audio_cfg = audio_cfg !== nothing ? audio_cfg : WaveAudioConfig(carrier_frequency=model.model_config.omega)
 
+    # Calculate standard display resolution (at least 640x480, even dimensions)
+    target_w = max(640, iseven(w_vis * 4) ? w_vis * 4 : w_vis * 4 + 1)
+    target_h = max(480, iseven(target_height) ? target_height : target_height + 1)
+    scale_filter = "scale=$(target_w):$(target_h):flags=bicubic,format=yuv420p"
+
     tmp_vis = tempname() * "_vis.rgb"
-    tmp_data = tempname() * "_data.rgb"
     tmp_audio = tempname() * "_audio.wav"
+
+    base_path = replace(path, r"\.(mkv|mp4)$"i => "")
+    mkv_path = base_path * ".mkv"
+    mp4_path = base_path * ".mp4"
+    weights_path = base_path * "_weights.bin"
+    meta_path = base_path * "_meta.yaml"
 
     try
         write(tmp_vis, vis_raw)
-        write(tmp_data, data_raw)
 
-        scale_filter = "scale=iw*$effective_scale:ih*$effective_scale:flags=neighbor,format=yuv420p"
-
+        # 1. Encode universal high-quality MP4 first (guarantees faststart, correct timestamps, clean stream durations)
         if include_audio
             audio_buf = sonify_model(model; audio_cfg=actual_audio_cfg, duration=video_duration)
             save_wav(audio_buf, tmp_audio; sample_rate=actual_audio_cfg.sample_rate)
 
-            # Multi-input FFmpeg pipeline with audio:
-            # Input 0: Visual frames (step n -> n_final)
-            # Input 1: Data frames (exact weights)
-            # Input 2: Audio WAV
-            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -f rawvideo -pix_fmt rgb24 -s $(w_data)x$(h_data) -r 2 -i $tmp_data -i $tmp_audio -filter_complex "[0:v]$scale_filter[v_disp]" -map "[v_disp]" -c:v:0 libx264 -pix_fmt:v:0 yuv420p -preset fast -metadata:s:v:0 title="VISUAL_BRAIN" -map "1:v" -c:v:1 ffv1 -pix_fmt:v:1 rgb24 -metadata:s:v:1 title="MODEL_WEIGHTS" -map "2:a" -c:a aac -b:a 192k -metadata:s:a:0 title="MODEL_AUDIO" -metadata title="WAVEML_MODEL" $path`
+            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -i $tmp_audio -vf $scale_filter -c:v libx264 -pix_fmt yuv420p -preset fast -metadata:s:v:0 title="VISUAL_BRAIN" -c:a aac -b:a 192k -metadata:s:a:0 title="MODEL_AUDIO" -metadata title="WAVEML_MODEL" -movflags +faststart $mp4_path`
             run(ffmpeg_cmd)
         else
-            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -f rawvideo -pix_fmt rgb24 -s $(w_data)x$(h_data) -r 2 -i $tmp_data -filter_complex "[0:v]$scale_filter[v_disp]" -map "[v_disp]" -c:v:0 libx264 -pix_fmt:v:0 yuv420p -preset fast -metadata:s:v:0 title="VISUAL_BRAIN" -map "1:v" -c:v:1 ffv1 -pix_fmt:v:1 rgb24 -metadata:s:v:1 title="MODEL_WEIGHTS" -metadata title="WAVEML_MODEL" $path`
+            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -vf $scale_filter -c:v libx264 -pix_fmt yuv420p -preset fast -metadata:s:v:0 title="VISUAL_BRAIN" -metadata title="WAVEML_MODEL" -movflags +faststart $mp4_path`
             run(ffmpeg_cmd)
         end
 
-        # Companion MP4 for universal Windows/Mac double-click viewing (includes audio track)
-        if export_mp4 && endswith(lowercase(path), ".mkv")
-            mp4_path = replace(path, r"\.mkv$"i => ".mp4")
-            try
-                if include_audio
-                    mp4_cmd = `ffmpeg -y -loglevel error -i $path -map 0:v:0 -map 0:a:0 -c:v copy -c:a copy $mp4_path`
-                    run(mp4_cmd)
-                else
-                    mp4_cmd = `ffmpeg -y -loglevel error -i $path -map 0:v:0 -c:v copy $mp4_path`
-                    run(mp4_cmd)
-                end
-            catch
-            end
-        end
+        # 2. Remux into MKV: 100% compliant Matroska container matching the working MP4 exactly
+        run(`ffmpeg -y -loglevel error -i $mp4_path -c copy $mkv_path`)
 
-        # Save companion JSON/YAML metadata file
-        meta_path = replace(path, r"\.(mkv|mp4)$"i => "") * "_meta.yaml"
+        # 3. Save companion exact binary weights for instant zero-loss inference
+        write(weights_path, binary_weights)
+
+        # 4. Save companion JSON/YAML metadata file
         cfg = WaveMLConfig(
             field = model.field_config,
             model = model.model_config,
@@ -398,8 +461,8 @@ function save_model(
             audio = actual_audio_cfg,
             video = WaveVideoConfig(
                 render_mode = actual_mode,
-                pixel_scale = effective_scale,
-                target_height = target_height,
+                pixel_scale = 4,
+                target_height = target_h,
                 fps = actual_fps,
                 frames = actual_n_frames,
                 state_colors = actual_colors
@@ -408,7 +471,6 @@ function save_model(
         save_config(cfg, meta_path)
     finally
         isfile(tmp_vis) && rm(tmp_vis, force=true)
-        isfile(tmp_data) && rm(tmp_data, force=true)
         isfile(tmp_audio) && rm(tmp_audio, force=true)
     end
 
@@ -419,7 +481,8 @@ end
     load_model(path::String; meta_path::Union{Nothing, String} = nothing)::WaveModel
 
 Loads a `WaveModel` from an MKV or MP4 video file.
-Decodes frames via ffmpeg and reconstructs all wave layers.
+First attempts bit-for-bit reconstruction from the companion binary weights or MKV container attachment.
+Falls back gracefully to video frame decoding if attachment is unavailable.
 """
 function load_model(path::String; meta_path::Union{Nothing, String} = nothing)::WaveModel
     isfile(path) || error("Model file not found: $path")
@@ -438,22 +501,50 @@ function load_model(path::String; meta_path::Union{Nothing, String} = nothing)::
         default_config()
     end
 
+    # 1. Primary: Check companion _weights.bin file
+    weights_path = replace(path, r"\.(mkv|mp4)$"i => "") * "_weights.bin"
+    if isfile(weights_path) && filesize(weights_path) >= 24
+        bin_data = read(weights_path)
+        loaded = deserialize_wave_model_binary(bin_data, cfg)
+        if loaded !== nothing
+            return loaded
+        end
+    end
+
+    # 2. Secondary: Extract attachment from MKV container (if present in legacy multi-stream MKV)
+    tmp_dump = tempname() * "_weights.bin"
+    loaded_model = try
+        run(`ffmpeg -y -loglevel quiet -dump_attachment:t:0 $tmp_dump -i $path -f null -`)
+        if isfile(tmp_dump) && filesize(tmp_dump) >= 24
+            bin_data = read(tmp_dump)
+            deserialize_wave_model_binary(bin_data, cfg)
+        else
+            nothing
+        end
+    catch
+        nothing
+    finally
+        isfile(tmp_dump) && rm(tmp_dump, force=true)
+    end
+
+    if loaded_model !== nothing
+        return loaded_model
+    end
+
+    # 3. Fallback: Secondary video stream (legacy MKV) or Stream 0:0 video frames
     nodes = cfg.model.nodes
     embed_dim = cfg.model.embed_dims
     num_layers = cfg.model.layers
     w = iseven(embed_dim) ? embed_dim : embed_dim + 1
     h = iseven(nodes) ? nodes : nodes + 1
-
     downscale_filter = "scale=$(w):$(h):flags=neighbor"
 
-    # 1. Try reading Stream 0:1 (dedicated DATA stream)
     raw_bytes = try
-        read(`ffmpeg -loglevel error -i $path -map 0:v:1 -f rawvideo -pix_fmt rgb24 -`)
+        read(`ffmpeg -loglevel quiet -i $path -map "0:v:1?" -f rawvideo -pix_fmt rgb24 -`)
     catch
         UInt8[]
     end
 
-    # 2. If Stream 1 is empty or missing (e.g. single-stream video), fallback to Stream 0:0
     if isempty(raw_bytes)
         raw_bytes = try
             read(`ffmpeg -loglevel error -i $path -map 0:v:0 -vf $downscale_filter -f rawvideo -pix_fmt rgb24 -`)

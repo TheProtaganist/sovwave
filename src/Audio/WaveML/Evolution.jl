@@ -94,8 +94,9 @@ function evaluate_population!(
             out = forward!(model, batch_inputs[b])
             target = batch_targets[b]
             
-            # 🏆 Winner: Aligned arrays with SIMD vectorization
-            @fastmath @simd ivdep for j in eachindex(out)
+            # 🏆 Winner: Aligned arrays with SIMD vectorization over common dimensions
+            n_eval = min(length(out), length(target))
+            @fastmath @simd ivdep for j in 1:n_eval
                 total_e += abs(out[j] - target[j])
             end
         end

@@ -212,8 +212,8 @@ struct WaveVideoConfig
         render_mode::Symbol = :potts_model_q_state_domains,
         pixel_scale::Int = 2,
         target_height::Int = 480,
-        fps::Int = 4,
-        frames::Int = 12,
+        fps::Int = 24,
+        frames::Int = 48,
         state_colors::Vector{Vector{Float64}} = [
             [1.0, 0.0, 1.0], # State 0: FF00FF (Magenta)
             [1.0, 1.0, 0.0], # State 1: FFFF00 (Yellow)
