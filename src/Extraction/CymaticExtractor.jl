@@ -22,6 +22,7 @@ struct CymaticExtractorConfig
     coherence_threshold::Float64
     sample_rate::Float64
     
+    # Primary keyword constructor setting eigenfrequency detection parameters and sample rates
     function CymaticExtractorConfig(;
         carrier_hz::Float64 = 432.0,
         coherence_threshold::Float64 = 0.5,

@@ -11,7 +11,7 @@ module Sovwave
 
 using Base # explicit self-containment intent (empty deps; nothing but stdlib/Base)
 
-const VERSION = v"0.3.5"
+const VERSION = v"0.4.0"
 
 # --- guarded includes --------------------------------------------------------
 const _SRC_DIR = joinpath(@__DIR__)
@@ -92,6 +92,7 @@ export format_tabular, format_text, format_images, format_timeseries, format_jev
 export from_tabular, from_text, from_image, from_timeseries, from_jev_state, num_samples, batch_size, num_batches
 export load_hf_dataset, hf_auth_token, hf_dataset_info
 export generate_text, generate_image, generate_3d, jev_decide, generate_video, register_model_type!, list_model_types
+export check_text_coherence, CoherenceResult
 export WaveHead, create_head, apply_head, head_loss, mutate_head!
 export inspect_model, model_summary, parameter_count, num_layers, get_layer, layer_details
 export save_model, load_model, infer, predict, train!, train_text!, train_llm, sonify_model, save_wav
@@ -117,6 +118,7 @@ export SovwaveFunctions
 export create_model
 export edit_layer!, edit_model!, modulate_frequencies!, shift_phases!, scale_amplitudes!, inspect_harmonics
 export load_dataset, validate_dataset, process_to_waves
+export process_image_to_waves, process_audio_to_waves, process_video_to_waves, process_3d_to_waves, process_jev_to_waves, decode_jev_decision, COLOR_PALETTES
 export WaveResonator, WaveChamber
 export WaveMechanicsOptimizer, step_mechanics!, apply_wave_mechanics!
 export train_async, train_wave, AsyncTrainingHandle

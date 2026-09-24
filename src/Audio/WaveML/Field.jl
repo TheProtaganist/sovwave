@@ -42,6 +42,7 @@ mutable struct WaveFieldPoint
     fractal_dim::Float64
     wave_speed::Float64
 
+    # Primary constructor initializing initial zero velocity and resting energy state
     function WaveFieldPoint(
         pos::Vector{Float64},
         vals::Vector{Float64};
@@ -71,6 +72,7 @@ mutable struct WaveField
     energy::Float64
     time_step::Int
 
+    # Primary constructor initializing manifold state and energy accumulation
     function WaveField(dim::Int, pts::Vector{WaveFieldPoint}, props::Vector{Symbol})
         dim > 0 || error("dimensions must be > 0, got $dim")
         new(dim, pts, props, 0.0, 0)

@@ -2,18 +2,13 @@
  * sovwave_runtime.js — Sovwave MKV Model Runtime (Node.js / Browser)
  *
  * Loads a trained Sovwave .mkv model and runs inference with zero Julia dependency.
- * Node.js: requires ffmpeg in PATH.
- * Browser: call SovwaveModel.fromArrayBuffer(mkvBuffer, metaYamlString).
- *
- * Usage (Node.js):
- *   const { SovwaveModel } = require('./sovwave_runtime');
- *   const model = await SovwaveModel.load('my_model.mkv', 'my_model_meta.yaml');
- *   const outputs = await model.predict([[0.1, 0.2, 0.3, 0.4]]);
- *   console.log(outputs);
- *
- * Usage (Browser, after fetching the MKV as ArrayBuffer):
- *   const model = await SovwaveModel.fromArrayBuffer(mkvBuffer, metaYamlText);
- *   const outputs = await model.predict([[0.1, 0.2, 0.3, 0.4]]);
+ * Supports:
+ * 1. Physical zero-DC nodal wave superposition:
+ *      E_i = sum_j (A_{i, j} * cos(phi_{i, j}) * x_j)
+ *      psi_i = sin(E_i)
+ *      hat_psi = psi / ||psi||_2
+ * 2. Lossless MKV container attachment extraction (waveml_model.bin)
+ * 3. Optical RGB video frame decoding (Centroid Kernel Sampling fallback)
  */
 
 'use strict';
@@ -21,36 +16,32 @@
 // ── Wave forward pass ─────────────────────────────────────────────────────────
 
 function waveForward(layer, inputValues, t = 0.0) {
-    const { nodes, embedDim, amplitudes, phases, frequencies,
-            fractalScales, fractalDims, waveSpeeds, omega } = layer;
+    const { nodes, embedDim, amplitudes, phases } = layer;
     const inLen = inputValues.length;
     const output = new Array(nodes).fill(0.0);
 
     for (let i = 0; i < nodes; i++) {
-        const beta    = fractalScales[i];
-        const df      = fractalDims[i];
-        const vSpd    = waveSpeeds[i];
-        const fracEnv = df / 1.5;
-        let nodeSum   = 0.0;
-
-        for (let j = 0; j < embedDim; j++) {
-            const inVal = j < inLen ? inputValues[j] : 0.5;
-            const amp   = amplitudes[i][j];
-            const ph    = phases[i][j];
-            const freq  = frequencies[i][j];
-
-            // Speed-aware phase: -1 = unlimited
-            const xEff  = vSpd === -1.0 ? inVal : inVal / Math.max(vSpd, 1e-12);
-            const angle = omega * 0.001 * freq * xEff + ph - t;
-            nodeSum    += amp * Math.sin(angle);
+        let Ei = 0.0;
+        const rowAmps = amplitudes[i];
+        const rowPhs  = phases[i];
+        const limit = Math.min(inLen, embedDim);
+        for (let j = 0; j < limit; j++) {
+            Ei += rowAmps[j] * Math.cos(rowPhs[j]) * inputValues[j];
         }
+        output[i] = Math.sin(Ei);
+    }
 
-        output[i] = (nodeSum / Math.sqrt(embedDim)) * beta * fracEnv;
+    // Unit L2 sphere projection
+    let sqSum = 0.0;
+    for (let i = 0; i < nodes; i++) sqSum += output[i] * output[i];
+    const nrm = Math.sqrt(sqSum);
+    if (nrm > 1e-6) {
+        for (let i = 0; i < nodes; i++) output[i] /= nrm;
     }
     return output;
 }
 
-// ── Pixel → weight decoding ───────────────────────────────────────────────────
+// ── Pixel → weight decoding (Optical Fallback) ─────────────────────────────────
 
 function decodePixels(rawBytes, w, h, numLayers, nodes, embedDim, omega, betaS = 1.618033988749895) {
     const bytesPerFrame = w * h * 3;
@@ -88,8 +79,14 @@ function decodePixels(rawBytes, w, h, numLayers, nodes, embedDim, omega, betaS =
                     }
                 }
                 if (count > 0) {
-                    amps[r][c]  = (rAcc / count / 255.0) * 2.0;
-                    phs[r][c]   = (gAcc / count / 255.0) * TWO_PI;
+                    let a = (rAcc / count / 255.0) * 2.0;
+                    let p = (gAcc / count / 255.0) * TWO_PI;
+                    if (a < 0.0) {
+                        a = -a;
+                        p = (p + Math.PI) % TWO_PI;
+                    }
+                    amps[r][c]  = a;
+                    phs[r][c]   = p;
                     freqs[r][c] = Math.max(0.1, (bAcc / count / 255.0) * 4.0);
                 }
             }
@@ -102,20 +99,30 @@ function decodePixels(rawBytes, w, h, numLayers, nodes, embedDim, omega, betaS =
     return layers;
 }
 
-// ── YAML parser (minimal, no dependencies) ─────────────────────────────────
+// ── Mini YAML parser ──────────────────────────────────────────────────────────
 
 function parseMetaYaml(text) {
-    const cfg = { nodes: 64, embedDim: 64, numLayers: 3, omega: 432.0, tFrames: 3, betaS: 1.618033988749895 };
+    const cfg = {
+        nodes:      64,
+        embedDim:   64,
+        numLayers:  3,
+        omega:      432.0,
+        tFrames:    1,
+        betaS:      1.618033988749895,
+    };
     if (!text) return cfg;
+
     const lines = text.split('\n');
     let inModel = false;
-    for (const line of lines) {
-        if (/^model:/.test(line)) { inModel = true; continue; }
-        if (inModel && /^\S/.test(line)) { inModel = false; }
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (line.startsWith('model:')) { inModel = true; continue; }
+        if (inModel && line && !rawLine.startsWith(' ') && !rawLine.startsWith('\t')) {
+            inModel = false;
+        }
         if (inModel) {
-            const m = line.match(/^\s+(\w+):\s*(.+)/);
-            if (!m) continue;
-            const [, key, val] = m;
+            const [key, ...rest] = line.split(':');
+            const val = rest.join(':').trim();
             if (key === 'nodes')      cfg.nodes      = parseInt(val);
             if (key === 'embed_dims') cfg.embedDim   = parseInt(val);
             if (key === 'layers')     cfg.numLayers  = parseInt(val);
@@ -130,7 +137,7 @@ function parseMetaYaml(text) {
 // ── Model class ───────────────────────────────────────────────────────────────
 
 class SovwaveModel {
-    constructor(layers, nodes, embedDim, omega = 432.0, tFrames = 3) {
+    constructor(layers, nodes, embedDim, omega = 432.0, tFrames = 1) {
         this.layers   = layers;
         this.nodes    = nodes;
         this.embedDim = embedDim;
@@ -140,18 +147,84 @@ class SovwaveModel {
 
     /**
      * Load model from MKV file (Node.js).
-     * @param {string} mkvPath     - path to .mkv model file
-     * @param {string} [metaPath]  - path to _meta.yaml (auto-detected if omitted)
-     * @returns {Promise<SovwaveModel>}
      */
     static async load(mkvPath, metaPath) {
         if (typeof require === 'undefined') {
             throw new Error('SovwaveModel.load() is Node.js only. Use fromArrayBuffer() in the browser.');
         }
         const fs = require('fs');
+        const os = require('os');
         const path = require('path');
+        const { execFileSync } = require('child_process');
 
-        // Auto-detect meta
+        // 1. Try lossless Matroska container attachment extraction
+        if (mkvPath.toLowerCase().endsWith('.mkv')) {
+            const tmpBin = path.join(os.tmpdir(), `sw_weights_${Date.now()}_${Math.random().toString(36).slice(2)}.dat`);
+            try {
+                execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-dump_attachment:t:0', tmpBin, '-i', mkvPath, '-f', 'null', '-']);
+                if (fs.existsSync(tmpBin) && fs.statSync(tmpBin).size >= 36) {
+                    const buf = fs.readFileSync(tmpBin);
+                    fs.unlinkSync(tmpBin);
+                    if (buf.toString('utf8', 0, 4) === 'SOVW') {
+                        const numLayers = buf.readInt32LE(8);
+                        const nodes     = buf.readInt32LE(12);
+                        const embedDim  = buf.readInt32LE(16);
+                        const omega     = buf.readDoubleLE(20);
+                        let off = 36;
+                        const layers = [];
+                        for (let l = 0; l < numLayers; l++) {
+                            const floatsPerMat = nodes * embedDim;
+                            const amps = Array.from({ length: nodes }, () => new Array(embedDim).fill(0.0));
+                            const phs  = Array.from({ length: nodes }, () => new Array(embedDim).fill(0.0));
+                            const freqs = Array.from({ length: nodes }, () => new Array(embedDim).fill(1.0));
+
+                            const ampVals = [];
+                            for (let k = 0; k < floatsPerMat; k++) {
+                                ampVals.push(buf.readFloatLE(off));
+                                off += 4;
+                            }
+                            const phVals = [];
+                            for (let k = 0; k < floatsPerMat; k++) {
+                                phVals.push(buf.readFloatLE(off));
+                                off += 4;
+                            }
+                            const freqVals = [];
+                            for (let k = 0; k < floatsPerMat; k++) {
+                                freqVals.push(buf.readFloatLE(off));
+                                off += 4;
+                            }
+                            const scales = [];
+                            for (let k = 0; k < nodes; k++) {
+                                scales.push(buf.readFloatLE(off));
+                                off += 4;
+                            }
+
+                            let idx = 0;
+                            for (let c = 0; c < embedDim; c++) {
+                                for (let r = 0; r < nodes; r++) {
+                                    let a = ampVals[idx];
+                                    let p = phVals[idx];
+                                    if (a < 0.0) {
+                                        a = -a;
+                                        p = (p + Math.PI) % (2.0 * Math.PI);
+                                    }
+                                    amps[r][c] = a;
+                                    phs[r][c]  = p;
+                                    freqs[r][c] = freqVals[idx];
+                                    idx++;
+                                }
+                            }
+                            layers.push({ nodes, embedDim, amplitudes: amps, phases: phs, frequencies: freqs, fractalScales: scales, omega });
+                        }
+                        return new SovwaveModel(layers, nodes, embedDim, omega, 1);
+                    }
+                }
+            } catch (e) {
+                if (fs.existsSync(tmpBin)) try { fs.unlinkSync(tmpBin); } catch (_) {}
+            }
+        }
+
+        // 2. Optical video frame decoding fallback
         const actualMeta = metaPath || mkvPath.replace(/\.mkv$/i, '_meta.yaml');
         let metaText = '';
         if (fs.existsSync(actualMeta)) {
@@ -170,9 +243,6 @@ class SovwaveModel {
 
     /**
      * Load model from ArrayBuffer (Browser).
-     * @param {ArrayBuffer} mkvBuffer
-     * @param {string} [metaYamlText]
-     * @returns {Promise<SovwaveModel>}
      */
     static async fromArrayBuffer(mkvBuffer, metaYamlText = '') {
         const cfg    = parseMetaYaml(metaYamlText);
@@ -188,14 +258,7 @@ class SovwaveModel {
     forward(inputValues, t = 0.0) {
         let current = [...inputValues];
         for (const layer of this.layers) {
-            const accum = new Array(layer.nodes).fill(0.0);
-            for (let frame = 0; frame < this.tFrames; frame++) {
-                const tOff = t + 2 * Math.PI * frame / (this.omega + 1e-12);
-                const out  = waveForward(layer, current, tOff);
-                for (let k = 0; k < layer.nodes; k++) accum[k] += out[k];
-            }
-            const scale = 1.0 / Math.sqrt(this.tFrames);
-            current = accum.map(v => v * scale);
+            current = waveForward(layer, current, t);
         }
         return current;
     }

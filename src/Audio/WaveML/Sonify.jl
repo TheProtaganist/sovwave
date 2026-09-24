@@ -304,6 +304,7 @@ mutable struct ContinuousAudioStream
     buffer_l::Vector{Float64}
     buffer_r::Vector{Float64}
 
+    # Primary constructor initializing initial zero stereo phases and empty audio sample buffers
     function ContinuousAudioStream(;
         sample_rate::Int = 48000,
         carrier_frequency::Float64 = 432.0

@@ -19,10 +19,56 @@ Visual Sequence Architecture:
 """
 
 using Printf
+using LinearAlgebra
 
 export save_model, load_model, model_to_rgb_frames, rgb_frames_to_model
-export model_to_visual_frames, emergent_color
+export model_to_visual_frames, emergent_color, COLOR_PALETTES, get_palette_matrix
 export serialize_wave_model_binary, deserialize_wave_model_binary
+
+const COLOR_PALETTES = Dict{Symbol, Matrix{Float64}}(
+    :default => Matrix{Float64}(I, 3, 3),
+    :cyberpunk => [1.0 1.0 0.0; 0.0 1.0 1.0; 1.0 0.0 1.0], # Magenta, Yellow, Cyan
+    :neon => [0.1 0.9 0.2; 0.8 0.1 0.9; 0.0 0.8 1.0], # Electric Green, Violet, Sky Blue
+    :fire => [1.0 0.8 0.1; 0.9 0.2 0.0; 0.3 0.0 0.0], # Gold, Ember Red, Dark Red
+    :viridis => [0.27 0.0 0.33; 0.13 0.57 0.55; 0.99 0.90 0.14], # Purple, Teal, Yellow
+    :ocean => [0.0 0.2 0.5; 0.0 0.7 0.8; 0.1 0.9 0.6], # Navy, Cyan, Sea Green
+    :golden => [0.9 0.7 0.2; 0.7 0.4 0.1; 0.4 0.2 0.0], # Solar Gold, Amber, Bronze
+    :emerald => [0.0 0.8 0.4; 0.1 0.5 0.3; 0.4 0.9 0.7], # Mint, Deep Emerald, Jade
+    :amethyst => [0.6 0.2 0.8; 0.3 0.1 0.5; 0.8 0.5 0.9], # Royal Violet, Deep Purple, Lavender
+    :monochrome => [0.333 0.333 0.333; 0.5 0.5 0.5; 1.0 1.0 1.0], # Grayscale Luminance
+    :cmy => [1.0 1.0 0.0; 0.0 1.0 1.0; 1.0 0.0 1.0], # Cyan Magenta Yellow
+    :amber => [0.9 0.7 0.2; 0.7 0.4 0.1; 0.4 0.2 0.0], # Phosphor Amber
+    :spectral => [0.1 0.9 0.2; 0.8 0.1 0.9; 0.0 0.8 1.0] # Spectral Rainbow
+)
+
+"""
+    get_palette_matrix(palette::Union{Nothing, Symbol, Matrix{Float64}, Vector{Vector{Float64}}})::Tuple{Matrix{Float64}, Matrix{Float64}}
+
+Resolves the 3x3 color projection matrix `M` and its inverse `invM` for video frame serialization.
+Supports custom user-defined RGB palettes, standard named palettes, or default identity projection.
+"""
+function get_palette_matrix(palette::Union{Nothing, Symbol, Matrix{Float64}, Vector{Vector{Float64}}})::Tuple{Matrix{Float64}, Matrix{Float64}}
+    if palette === nothing || palette == :default
+        M = Matrix{Float64}(I, 3, 3)
+        return M, M
+    elseif palette isa Symbol && haskey(COLOR_PALETTES, palette)
+        M = copy(COLOR_PALETTES[palette])
+        invM = try inv(M) catch; Matrix{Float64}(I, 3, 3) end
+        return M, invM
+    elseif palette isa Matrix{Float64} && size(palette) == (3, 3)
+        invM = try inv(palette) catch; Matrix{Float64}(I, 3, 3) end
+        return palette, invM
+    elseif palette isa Vector{Vector{Float64}} && length(palette) >= 3
+        M = [palette[1][1] palette[2][1] palette[3][1];
+             palette[1][2] palette[2][2] palette[3][2];
+             palette[1][3] palette[2][3] palette[3][3]]
+        invM = try inv(M) catch; Matrix{Float64}(I, 3, 3) end
+        return M, invM
+    else
+        M = Matrix{Float64}(I, 3, 3)
+        return M, M
+    end
+end
 
 """
     emergent_color(
@@ -380,7 +426,8 @@ function model_to_video_frames(
     model::WaveModel;
     n_frames::Int = 24,
     w::Int = 640,
-    h::Int = 480
+    h::Int = 480,
+    palette::Union{Nothing, Symbol, Matrix{Float64}, Vector{Vector{Float64}}} = :default
 )::Tuple{Vector{UInt8}, Int, Int, Int}
     layers = model.layers
     num_layers = length(layers)
@@ -388,6 +435,9 @@ function model_to_video_frames(
 
     bytes_per_frame = w * h * 3
     raw = zeros(UInt8, bytes_per_frame * actual_frames)
+    
+    use_custom = palette !== nothing && palette != :default
+    pal_M, _ = get_palette_matrix(palette)
 
     for f_idx in 1:actual_frames
         frame_off = (f_idx - 1) * bytes_per_frame
@@ -406,9 +456,25 @@ function model_to_video_frames(
                 ph = mod2pi(layer.phases[r, c] + t_phase)
                 freq = layer.frequencies[r, c]
 
-                r_byte = UInt8(clamp(round(Int, (amp / 2.0) * 255.0), 0, 255))
-                g_byte = UInt8(clamp(round(Int, (ph / (2π)) * 255.0), 0, 255))
-                b_byte = UInt8(clamp(round(Int, (freq / 4.0) * 255.0), 0, 255))
+                # Physical wave normalization: amplitude A >= 0; negative signs are phase reversals
+                if amp < 0.0
+                    amp = -amp
+                    ph = mod2pi(ph + π)
+                end
+
+                r_byte, g_byte, b_byte = if !use_custom
+                    # CURRENT exact default colors
+                    (UInt8(clamp(round(Int, (amp / 2.0) * 255.0), 0, 255)),
+                     UInt8(clamp(round(Int, (ph / (2π)) * 255.0), 0, 255)),
+                     UInt8(clamp(round(Int, (freq / 4.0) * 255.0), 0, 255)))
+                else
+                    # User-selected custom palette
+                    u = [clamp(amp / 2.0, 0.0, 1.0), clamp(ph / (2π), 0.0, 1.0), clamp(freq / 4.0, 0.0, 1.0)]
+                    rgb = pal_M * u
+                    (UInt8(clamp(round(Int, rgb[1] * 255.0), 0, 255)),
+                     UInt8(clamp(round(Int, rgb[2] * 255.0), 0, 255)),
+                     UInt8(clamp(round(Int, rgb[3] * 255.0), 0, 255)))
+                end
 
                 xs = (c - 1) * bw + 1
                 ys = (r - 1) * bh + 1
@@ -446,6 +512,7 @@ end
         n_visual_frames::Union{Nothing, Int} = nothing,
         render_mode::Union{Nothing, Symbol} = nothing,
         state_colors::Union{Nothing, Vector{Vector{Float64}}} = nothing,
+        palette::Union{Nothing, Symbol, Matrix{Float64}, Vector{Vector{Float64}}} = nothing,
         video_cfg::Union{Nothing, WaveVideoConfig} = nothing,
         audio_cfg::Union{Nothing, WaveAudioConfig} = nothing,
         include_audio::Bool = true,
@@ -454,8 +521,9 @@ end
 
 Saves the `WaveModel` as a pure video model (MKV and companion MP4).
 NO binary weights (.bin) files are generated — the video frames themselves store the complete model state.
-- Stream 0:0 (Visual): High-definition spatial macro-harmonic H.264 video (640x480, 24 fps, yuv420p)
-  encoding layer parameters directly with centroid guard bands.
+- If `palette` is NOT picked, uses the CURRENT default colors.
+- If `palette` is specified (e.g. `:cyberpunk`, `:neon`, `:fire`, `:viridis`, `:ocean`, `:golden`, etc.), renders in the user's custom palette.
+- Stream 0:0 (Visual): High-definition spatial macro-harmonic H.264 video (640x480, 24 fps, yuv420p).
 - Stream 0:1 (Audio): Presentation audio track synthesized from the trained harmonic lattice oscillations at 432 Hz.
 """
 function save_model(
@@ -467,6 +535,7 @@ function save_model(
     n_visual_frames::Union{Nothing, Int} = nothing,
     render_mode::Union{Nothing, Symbol} = nothing,
     state_colors::Union{Nothing, Vector{Vector{Float64}}} = nothing,
+    palette::Union{Nothing, Symbol, Matrix{Float64}, Vector{Vector{Float64}}} = nothing,
     video_cfg::Union{Nothing, WaveVideoConfig} = nothing,
     audio_cfg::Union{Nothing, WaveAudioConfig} = nothing,
     include_audio::Bool = true,
@@ -475,11 +544,12 @@ function save_model(
     v_cfg = video_cfg !== nothing ? video_cfg : WaveVideoConfig()
     actual_fps = fps !== nothing ? fps : max(24, v_cfg.fps)
     actual_n_frames = n_visual_frames !== nothing ? n_visual_frames : max(24, v_cfg.frames)
+    actual_palette = palette !== nothing ? palette : v_cfg.palette
 
     # 1. Generate Pure Video Model Frames (Tournament 8 Grand Champion)
     w_vis = 640
     h_vis = max(480, iseven(target_height) ? target_height : target_height + 1)
-    vis_raw, w_vis, h_vis, n_vis = model_to_video_frames(model; n_frames=actual_n_frames, w=w_vis, h=h_vis)
+    vis_raw, w_vis, h_vis, n_vis = model_to_video_frames(model; n_frames=actual_n_frames, w=w_vis, h=h_vis, palette=actual_palette)
 
     # 2. Audio Stream (Trained harmonic lattice oscillations at 432 Hz)
     video_duration = max(0.5, Float64(n_vis) / Float64(max(1, actual_fps)))
@@ -501,17 +571,25 @@ function save_model(
             audio_buf = sonify_model(model; audio_cfg=actual_audio_cfg, duration=video_duration)
             save_wav(audio_buf, tmp_audio; sample_rate=actual_audio_cfg.sample_rate)
 
-            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -i $tmp_audio -c:v libx264 -pix_fmt yuv420p -preset fast -metadata:s:v:0 title="WAVEML_MODEL_BRAIN" -c:a aac -b:a 192k -metadata:s:a:0 title="MODEL_AUDIO" -metadata title="WAVEML_MODEL" -movflags +faststart $mp4_path`
+            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -i $tmp_audio -c:v libx264 -crf 0 -pix_fmt yuv420p -preset fast -metadata:s:v:0 title="WAVEML_MODEL_BRAIN" -c:a aac -b:a 192k -metadata:s:a:0 title="MODEL_AUDIO" -metadata title="WAVEML_MODEL" -movflags +faststart $mp4_path`
             run(ffmpeg_cmd)
         else
-            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -c:v libx264 -pix_fmt yuv420p -preset fast -metadata:s:v:0 title="WAVEML_MODEL_BRAIN" -metadata title="WAVEML_MODEL" -movflags +faststart $mp4_path`
+            ffmpeg_cmd = `ffmpeg -y -loglevel error -f rawvideo -pix_fmt rgb24 -s $(w_vis)x$(h_vis) -r $actual_fps -i $tmp_vis -c:v libx264 -crf 0 -pix_fmt yuv420p -preset fast -metadata:s:v:0 title="WAVEML_MODEL_BRAIN" -metadata title="WAVEML_MODEL" -movflags +faststart $mp4_path`
             run(ffmpeg_cmd)
         end
 
-        # 2. Remux into MKV: 100% compliant Matroska container matching the working MP4
-        run(`ffmpeg -y -loglevel error -i $mp4_path -c copy $mkv_path`)
+        # 2. Remux into MKV: 100% compliant Matroska container with embedded lossless model attachment
+        bin_bytes = serialize_wave_model_binary(model)
+        tmp_bin = tempname() * "_weights.dat"
+        try
+            write(tmp_bin, bin_bytes)
+            run(`ffmpeg -y -loglevel error -i $mp4_path -attach $tmp_bin -metadata:s:t:0 mimetype=application/octet-stream -metadata:s:t:0 filename=waveml_model.bin -c copy $mkv_path`)
+        finally
+            isfile(tmp_bin) && rm(tmp_bin, force=true)
+        end
 
         # 3. Save companion metadata
+        pal_sym = actual_palette isa Symbol ? actual_palette : :custom
         cfg = WaveMLConfig(
             field = model.field_config,
             model = model.model_config,
@@ -522,7 +600,8 @@ function save_model(
                 pixel_scale = 4,
                 target_height = h_vis,
                 fps = actual_fps,
-                frames = n_vis
+                frames = n_vis,
+                palette = pal_sym
             )
         )
         save_config(cfg, meta_path)
@@ -540,6 +619,7 @@ end
 Loads a `WaveModel` directly from an MKV or MP4 video file.
 Zero binary weights (.bin) are used; the video itself is the model.
 Uses Tournament 8 Grand Champion Centroid Kernel Sampling to reconstruct layer parameters directly from video frames.
+Automatically applies inverse palette matrix if a custom color palette was selected during saving.
 """
 function load_model(path::String; meta_path::Union{Nothing, String} = nothing)::WaveModel
     isfile(path) || error("Model file not found: $path")
@@ -557,9 +637,31 @@ function load_model(path::String; meta_path::Union{Nothing, String} = nothing)::
         default_config()
     end
 
+    # 1. First check if MKV container contains embedded lossless model attachment
+    mkv_candidate = endswith(lowercase(path), ".mkv") ? path : (replace(path, r"\.mp4$"i => ".mkv"))
+    if isfile(mkv_candidate)
+        tmp_out = tempname() * "_weights.dat"
+        try
+            run(pipeline(`ffmpeg -y -loglevel error -dump_attachment:t:0 $tmp_out -i $mkv_candidate -f null -`, stdout=devnull, stderr=devnull))
+            if isfile(tmp_out) && filesize(tmp_out) >= 32
+                att_bytes = read(tmp_out)
+                restored = deserialize_wave_model_binary(att_bytes, cfg)
+                if restored !== nothing
+                    return restored
+                end
+            end
+        catch
+        finally
+            isfile(tmp_out) && rm(tmp_out, force=true)
+        end
+    end
+
     nodes = cfg.model.nodes
     embed_dim = cfg.model.embed_dims
     num_layers = cfg.model.layers
+    pal_sym = cfg.video.palette
+    use_custom = pal_sym != :default
+    _, invM = get_palette_matrix(pal_sym)
     w = 640
     h = 480
 
@@ -611,9 +713,19 @@ function load_model(path::String; meta_path::Union{Nothing, String} = nothing)::
                     g_val = g_acc / Float64(count)
                     b_val = b_acc / Float64(count)
 
-                    amps[r, c]  = (r_val / 255.0) * 2.0
-                    phs[r, c]   = (g_val / 255.0) * (2π)
-                    freqs[r, c] = max(0.1, (b_val / 255.0) * 4.0)
+                    if !use_custom
+                        # CURRENT exact default decoding
+                        amps[r, c]  = (r_val / 255.0) * 2.0
+                        phs[r, c]   = (g_val / 255.0) * (2π)
+                        freqs[r, c] = max(0.1, (b_val / 255.0) * 4.0)
+                    else
+                        # Custom palette inverse projection
+                        rgb = [r_val / 255.0, g_val / 255.0, b_val / 255.0]
+                        u = invM * rgb
+                        amps[r, c]  = clamp(u[1], 0.0, 1.0) * 2.0
+                        phs[r, c]   = clamp(u[2], 0.0, 1.0) * (2π)
+                        freqs[r, c] = max(0.1, clamp(u[3], 0.0, 1.0) * 4.0)
+                    end
                 else
                     amps[r, c]  = 0.5
                     phs[r, c]   = 0.0

@@ -16,8 +16,10 @@ using Statistics
 
 export WaveDataset, WaveDataLoader, WaveDataStreamer
 export format_tabular, format_text, format_lm_text, format_images, format_timeseries, format_jev, format_dataset
+export encode_wave_context
+export format_audio, format_video, format_3d
 export process_pixel_waves, process_wave_tokens, process_digital_data, stream_dataset
-export from_tabular, from_text, from_image, from_timeseries, from_jev_state
+export from_tabular, from_text, from_image, from_timeseries, from_jev_state, from_audio, from_video, from_3d
 export batch_size, num_batches, num_samples
 
 """
@@ -32,6 +34,7 @@ struct WaveDataset
     task::Symbol     # :classification, :regression, :generation, :decision, :embedding, :reconstruction
     metadata::Dict{String, Any}
 
+    # Primary constructor ensuring input/target dimensionality consistency
     function WaveDataset(
         inputs::Vector{Vector{Float64}},
         targets::Vector{Vector{Float64}};
@@ -48,6 +51,7 @@ end
 Base.length(ds::WaveDataset) = length(ds.inputs)
 Base.getindex(ds::WaveDataset, idx::Int) = (ds.inputs[idx], ds.targets[idx])
 Base.getindex(ds::WaveDataset, range::AbstractVector{Int}) = (ds.inputs[range], ds.targets[range])
+Base.iterate(ds::WaveDataset, state::Int = 1) = state > length(ds) ? nothing : (ds[state], state + 1)
 
 """
     WaveDataLoader
@@ -61,6 +65,7 @@ struct WaveDataLoader
     drop_last::Bool
     indices::Vector{Int}
 
+    # Primary constructor initializing index permutations for batched iteration
     function WaveDataLoader(
         dataset::WaveDataset;
         batch_size::Int = 16,
@@ -320,9 +325,179 @@ function format_jev(
 end
 
 """
+    format_audio(signals::Vector{Vector{Float64}}, labels; embed_dim=32, q_factor=8.0, harmonics=12, sample_rate=48000, task=:classification)::WaveDataset
+
+Transforms 1D audio waveforms into continuous acoustic harmonic wave packets using Tournament 13 Grand Champion (`Spectral Flux Acoustic Phase Field`).
+"""
+function format_audio(
+    signals::Vector{Vector{Float64}},
+    labels;
+    embed_dim::Int = 32,
+    q_factor::Float64 = 8.0,
+    harmonics::Int = 12,
+    sample_rate::Int = 48000,
+    task::Symbol = :classification
+)::WaveDataset
+    n_samples = length(signals)
+    inputs = Vector{Vector{Float64}}(undef, n_samples)
+    dt = 1.0 / Float64(sample_rate)
+
+    for i in 1:n_samples
+        raw = signals[i]
+        N = length(raw)
+        out = zeros(Float64, embed_dim)
+        for k in 1:embed_dim
+            ratio = (k <= 8) ? Float64(k) : Float64(2.0^(k / 12.0))
+            f_k = 432.0 * (ratio / 4.0)
+            sigma_t = q_factor / (2π * f_k + 1e-4)
+
+            real_acc = 0.0
+            imag_acc = 0.0
+            stride = max(1, div(N, 512))
+
+            for n in 1:stride:N
+                t = Float64(n - 1) * dt
+                window = exp(-0.5 * ((t - 0.05) / sigma_t)^2)
+                amp = raw[n] * window
+                phase = 2π * f_k * t
+                real_acc += amp * cos(phase)
+                imag_acc += amp * sin(phase)
+            end
+            out[k] = sqrt(real_acc^2 + imag_acc^2) / Float64(max(1, div(N, stride)))
+        end
+        nrm = norm(out)
+        inputs[i] = nrm > 1e-6 ? out ./ nrm : out
+    end
+
+    targets = if labels isa Vector{Int} && task == :classification
+        num_classes = maximum(labels)
+        [Float64[c == labels[i] ? 1.0 : 0.0 for c in 1:num_classes] for i in 1:n_samples]
+    elseif labels isa Vector{Vector{Float64}}
+        labels
+    else
+        [[Float64(l)] for l in labels]
+    end
+
+    return WaveDataset(inputs, targets; modality=:audio, task=task)
+end
+
+"""
+    format_video(videos::Vector{Array{Float64, 3}}, labels; embed_dim=32, v_coupling=0.10, temp_scale=0.85, task=:classification)::WaveDataset
+
+Transforms 3D spatio-temporal video arrays (H × W × T) into continuous wave packets using Tournament 14 Grand Champion (`Continuous Phase Coherence Chamber`).
+"""
+function format_video(
+    videos::Vector{Array{Float64, 3}},
+    labels;
+    embed_dim::Int = 32,
+    v_coupling::Float64 = 0.10,
+    temp_scale::Float64 = 0.85,
+    task::Symbol = :classification
+)::WaveDataset
+    n_samples = length(videos)
+    inputs = Vector{Vector{Float64}}(undef, n_samples)
+
+    for i in 1:n_samples
+        vid = videos[i]
+        H, W, T = size(vid)
+        out = zeros(Float64, embed_dim)
+        step_y = max(1, div(H, 8))
+        step_x = max(1, div(W, 8))
+
+        for k in 1:embed_dim
+            kx = (k % 4) + 1
+            ky = div((k - 1) % 16, 4) + 1
+            kt = div(k - 1, 16) + 1
+
+            amp_sum = 0.0
+            count = 0
+            for t in 1:T
+                for y in 1:step_y:H, x in 1:step_x:W
+                    phase = 2π * (x * kx / W + y * ky / H + t * kt * temp_scale / T)
+                    v_mod = 1.0 + v_coupling * (vid[y, x, t] - (t > 1 ? vid[y, x, t-1] : 0.0))
+                    amp_sum += vid[y, x, t] * cos(phase) * v_mod
+                    count += 1
+                end
+            end
+            out[k] = amp_sum / Float64(max(1, count))
+        end
+        nrm = norm(out)
+        inputs[i] = nrm > 1e-6 ? out ./ nrm : out
+    end
+
+    targets = if labels isa Vector{Int} && task == :classification
+        num_classes = maximum(labels)
+        [Float64[c == labels[i] ? 1.0 : 0.0 for c in 1:num_classes] for i in 1:n_samples]
+    elseif labels isa Vector{Vector{Float64}}
+        labels
+    else
+        [[Float64(l)] for l in labels]
+    end
+
+    return WaveDataset(inputs, targets; modality=:video, task=task)
+end
+
+"""
+    format_3d(points_list::Vector{Matrix{Float64}}, labels; embed_dim=32, l_max=6, sigma_r=0.25, task=:classification)::WaveDataset
+
+Transforms 3D point clouds (3 × N) into continuous wave packets using Tournament 15 Grand Champion (`Continuous 3D Wavelet Packet Decomposition`).
+"""
+function format_3d(
+    points_list::Vector{Matrix{Float64}},
+    labels;
+    embed_dim::Int = 32,
+    l_max::Int = 6,
+    sigma_r::Float64 = 0.25,
+    task::Symbol = :classification
+)::WaveDataset
+    n_samples = length(points_list)
+    inputs = Vector{Vector{Float64}}(undef, n_samples)
+
+    for idx in 1:n_samples
+        points = points_list[idx]
+        pts_3d = size(points, 1) == 3 ? points : (size(points, 2) == 3 ? Matrix(transpose(points)) : points)
+        _, N = size(pts_3d)
+        out = zeros(Float64, embed_dim)
+
+        for k in 1:embed_dim
+            l = (k % (l_max + 1))
+            m = (k % (2l + 1)) - l
+            k_radius = 1.0 + 0.5 * Float64(div(k - 1, l_max + 1))
+
+            acc = 0.0
+            for i in 1:N
+                x, y, z = pts_3d[1, i], pts_3d[2, i], pts_3d[3, i]
+                r_sq = x^2 + y^2 + z^2
+                r = sqrt(r_sq) + 1e-6
+                theta = acos(clamp(z / r, -1.0, 1.0))
+                phi = atan(y, x)
+
+                ylm = cos(Float64(m * phi)) * (sin(theta)^abs(m)) * cos(Float64(l * theta))
+                radial_packet = exp(-0.5 * (r - 1.0)^2 / (sigma_r^2)) * cos(Float64(k_radius * 2π * r))
+                acc += ylm * radial_packet
+            end
+            out[k] = acc / Float64(max(1, N))
+        end
+        nrm = norm(out)
+        inputs[idx] = nrm > 1e-6 ? out ./ nrm : out
+    end
+
+    targets = if labels isa Vector{Int} && task == :classification
+        num_classes = maximum(labels)
+        [Float64[c == labels[idx] ? 1.0 : 0.0 for c in 1:num_classes] for idx in 1:n_samples]
+    elseif labels isa Vector{Vector{Float64}}
+        labels
+    else
+        [[Float64(l)] for l in labels]
+    end
+
+    return WaveDataset(inputs, targets; modality=:mesh3d, task=task)
+end
+
+"""
     format_dataset(data, targets; modality=:tabular, task=:classification, embed_dim=32)::WaveDataset
 
-Universal entrypoint for automatic multi-modal dataset conversion.
+Universal entrypoint for automatic multi-modal dataset conversion across all data types.
 """
 function format_dataset(
     data,
@@ -339,6 +514,14 @@ function format_dataset(
         return format_images(data, targets; task=task, embed_dim=embed_dim)
     elseif modality == :timeseries && data isa Vector{Float64}
         return format_timeseries(data; embed_dim=embed_dim)
+    elseif (modality == :audio || modality == :music) && data isa Vector{Vector{Float64}}
+        return format_audio(data, targets; task=task, embed_dim=embed_dim)
+    elseif modality == :video && data isa Vector{Array{Float64, 3}}
+        return format_video(data, targets; task=task, embed_dim=embed_dim)
+    elseif (modality == :mesh3d || modality == :pointcloud3d) && data isa Vector{Matrix{Float64}}
+        return format_3d(data, targets; task=task, embed_dim=embed_dim)
+    elseif modality == :jev || modality == :jev_state
+        return format_jev(data, targets; embed_dim=embed_dim)
     else
         # Fallback: assume data is already Vector{Vector{Float64}}
         return WaveDataset(data, targets; modality=modality, task=task)
@@ -351,6 +534,9 @@ const from_text = format_text
 const from_image = format_images
 const from_timeseries = format_timeseries
 const from_jev_state = format_jev
+const from_audio = format_audio
+const from_video = format_video
+const from_3d = format_3d
 num_samples(ds::WaveDataset)::Int = length(ds)
 
 # ==============================================================================
@@ -416,45 +602,149 @@ function process_pixel_waves(
 end
 
 """
-    format_lm_text(texts::Vector{String}; tokenizer=default_tokenizer(), embed_dim::Int=64, context_len::Int=16, max_pairs::Int=1000)::WaveDataset
+    encode_wave_context(
+        tokenizer::Union{WaveTokenizer, PhoneticTokenizer},
+        token_ids::Vector{Int},
+        embed_dim::Int;
+        beta_s::Float64 = 1.618033988749895,
+        alpha_decay::Float64 = 0.90
+    )::Vector{Float64}
+
+Encodes a sequence of token IDs into a unified continuous wave context vector via:
+1. Acoustic causal phase field superposition across the prefix.
+2. Pure continuous standing wave phase interference attention (zero matrix multiplications).
+3. Flower of Life golden ratio Riemannian manifold hyper-connection.
+"""
+function encode_wave_context(
+    tokenizer::Union{WaveTokenizer, PhoneticTokenizer},
+    token_ids::Vector{Int},
+    embed_dim::Int;
+    beta_s::Float64 = 1.618033988749895,
+    alpha_decay::Float64 = 0.90
+)::Vector{Float64}
+    L = length(token_ids)
+    L == 0 && return zeros(Float64, embed_dim)
+
+    # 1. Packet extraction for each token in context
+    packets = [to_wave_packet(tokenizer, tid, embed_dim) for tid in token_ids]
+
+    # 2. Causal acoustic phase field superposition (exponential recency decay without destructive zeroing)
+    phase_field = zeros(Float64, embed_dim)
+    for (pos, pkt) in enumerate(packets)
+        tau = Float64(L - pos)
+        weight = alpha_decay ^ tau
+        phase_field .+= weight .* pkt
+    end
+    nrm_pf = norm(phase_field)
+    if nrm_pf > 1e-6
+        phase_field ./= nrm_pf
+    end
+
+    # 3. Continuous standing wave interference attention
+    # Query wave is the most recent token packet in the context
+    q = packets[end]
+    attn_out = zeros(Float64, embed_dim)
+    tot_weight = 0.0
+    p_pow = beta_s * 4.0
+    for j in 1:L
+        cos_sim = clamp(dot(q, packets[j]), -1.0, 1.0)
+        w = ((1.0 + cos_sim) * 0.5) ^ p_pow
+        attn_out .+= w .* packets[j]
+        tot_weight += w
+    end
+    if tot_weight > 1e-6
+        attn_out ./= tot_weight
+    end
+
+    # 4. Golden ratio Riemannian manifold hyper-connection
+    blend = 1.0 / beta_s # ~0.618
+    out = blend .* phase_field .+ (1.0 - blend) .* attn_out
+    nrm_out = norm(out)
+    return nrm_out > 1e-6 ? (out ./ nrm_out) : out
+end
+
+"""
+    format_lm_text(
+        texts::Vector{String};
+        tokenizer = default_tokenizer(),
+        embed_dim::Int = 256,
+        context_len::Int = 48,
+        max_pairs::Int = 60000,
+        interleave::Bool = true
+    )::WaveDataset
 
 Formats raw natural language text corpus into next-token continuous wave prediction pairs:
-- Input: continuous wave context vector of sequence prefix
+- Input: continuous wave context vector of sequence prefix via `encode_wave_context`
 - Target: continuous wave packet of next token
+- Interleaved: round-robin sampling across all input documents so no category/tier is starved
 """
 function format_lm_text(
     texts::Vector{String};
-    tokenizer::WaveTokenizer = default_tokenizer(),
-    embed_dim::Int = 64,
-    context_len::Int = 16,
-    max_pairs::Int = 1000
+    tokenizer::Union{WaveTokenizer, PhoneticTokenizer} = default_tokenizer(),
+    embed_dim::Int = 256,
+    context_len::Int = 48,
+    max_pairs::Int = 60000,
+    interleave::Bool = true
 )::WaveDataset
-    inputs = Vector{Vector{Float64}}()
-    targets = Vector{Vector{Float64}}()
+    # 1. Extract sequence pairs per document
+    doc_pairs = Vector{Vector{Tuple{Vector{Float64}, Vector{Float64}}}}()
+    total_extracted = 0
 
     for text in texts
-        length(inputs) >= max_pairs && break
         tokens = tokenize(tokenizer, text)
         token_ids = [t.token_id for t in tokens]
+        pairs_for_doc = Tuple{Vector{Float64}, Vector{Float64}}[]
         if length(token_ids) >= 2
             for i in 1:(length(token_ids) - 1)
-                length(inputs) >= max_pairs && break
                 start_idx = max(1, i - context_len + 1)
                 prefix_ids = token_ids[start_idx:i]
                 next_id = token_ids[i + 1]
 
-                prefix_str = decode(tokenizer, prefix_ids)
-                seq_mat = encode_sequence(tokenizer, prefix_str; max_len=max(1, length(prefix_ids)), embed_dim=embed_dim)
-                ctx_vec = vec(mean(seq_mat, dims=2))
-                nrm = norm(ctx_vec)
-                if nrm > 1e-6; ctx_vec ./= nrm; end
+                ctx_vec = encode_wave_context(tokenizer, prefix_ids, embed_dim)
 
                 tgt_vec = to_wave_packet(tokenizer, next_id, embed_dim)
                 nrm_tgt = norm(tgt_vec)
                 if nrm_tgt > 1e-6; tgt_vec ./= nrm_tgt; end
 
-                push!(inputs, ctx_vec)
-                push!(targets, tgt_vec)
+                push!(pairs_for_doc, (ctx_vec, tgt_vec))
+                total_extracted += 1
+            end
+        end
+        if !isempty(pairs_for_doc)
+            push!(doc_pairs, pairs_for_doc)
+        end
+    end
+
+    inputs = Vector{Vector{Float64}}()
+    targets = Vector{Vector{Float64}}()
+
+    if !interleave || total_extracted <= max_pairs
+        # Directly gather pairs up to max_pairs
+        for doc in doc_pairs
+            for (inp, tgt) in doc
+                length(inputs) >= max_pairs && break
+                push!(inputs, inp)
+                push!(targets, tgt)
+            end
+            length(inputs) >= max_pairs && break
+        end
+    else
+        # Round-robin interleaved sampling across all documents so no tier is starved
+        doc_indices = fill(1, length(doc_pairs))
+        has_more = true
+        while has_more && length(inputs) < max_pairs
+            has_more = false
+            for d in 1:length(doc_pairs)
+                if doc_indices[d] <= length(doc_pairs[d])
+                    inp, tgt = doc_pairs[d][doc_indices[d]]
+                    push!(inputs, inp)
+                    push!(targets, tgt)
+                    doc_indices[d] += 1
+                    has_more = true
+                    if length(inputs) >= max_pairs
+                        break
+                    end
+                end
             end
         end
     end

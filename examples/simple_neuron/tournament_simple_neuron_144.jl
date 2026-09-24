@@ -104,6 +104,11 @@ function evaluate_neuron_candidate(cand::NeuronCandidate, n_generations::Int = 6
     return NeuronMetrics(cand.name, accuracy, final_loss, phase_coherence, noise_margin, throughput, score)
 end
 
+"""
+    get_round_neuron_algorithms(round_num::Int, prev_winner::Union{Nothing, NeuronCandidate})::Vector{NeuronCandidate}
+
+Generates candidate single-neuron wave algorithms for round `round_num` evolved from `prev_winner`.
+"""
 function get_round_neuron_algorithms(round_num::Int, prev_winner::Union{Nothing, NeuronCandidate})::Vector{NeuronCandidate}
     algs = NeuronCandidate[]
     
@@ -260,6 +265,11 @@ function get_round_neuron_algorithms(round_num::Int, prev_winner::Union{Nothing,
     return algs
 end
 
+"""
+    run_neuron_tournament()
+
+Executes 144-algorithm tournament benchmarking continuous wave XOR neuron architectures.
+"""
 function run_neuron_tournament()
     println("="^90)
     println(" 🏆 144-ALGORITHM TOURNAMENT: SIMPLE NEURON (BINARY OSCILLATOR) 🏆")

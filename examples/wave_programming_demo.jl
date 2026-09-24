@@ -16,6 +16,11 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 
 using Aetheria.Audio
 
+"""
+    main()
+
+Executes interactive wave programming workflow demonstrating wave registers, interference gates, and throughput.
+"""
 function main()
     println("="^72)
     println(" 🌊 AETHERIA: WAVE-BASED COMPUTING IN JULIA 🌊")

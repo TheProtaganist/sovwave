@@ -19,6 +19,7 @@ struct BinauralBeat
     sample_rate::Int
     trig_func::Symbol
 
+    # Primary inner constructor validating frequency ranges for brainwave entrainment
     function BinauralBeat(carrier_freq::Float64, beat_freq::Float64, left_phase::Ref{Float64}, right_phase::Ref{Float64}, sample_rate::Int, trig_func::Symbol)
         if beat_freq < 0.5 || beat_freq > 40.0
             throw(ArgumentError("Beat frequency must be between 0.5 and 40 Hz"))

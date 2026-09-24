@@ -25,6 +25,11 @@ using .Aetheria.Audio.AudioConstants
 
 include(joinpath(@__DIR__, "../test/audio/wave_computation_competition.jl"))
 
+"""
+    run_full_wave_model()
+
+Demonstrates full end-to-end wave computation, tuning, harmonics, and audio synthesis.
+"""
 function run_full_wave_model()
     println("="^75)
     println(" 🌟 AETHERIA QUANTUM WAVE COMPUTATION ENGINE & AUDIO MODEL 🌟 ")

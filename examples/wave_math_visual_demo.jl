@@ -16,6 +16,11 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 
 using Aetheria.Audio
 
+"""
+    main()
+
+Executes wave mathematical computing demos including calculus, trigonometry, physics, and algebra.
+"""
 function main()
     println("="^75)
     println(" 🌟 AETHERIA: WAVE MATHEMATICAL COMPUTING ACROSS ALL DOMAINS 🌟")

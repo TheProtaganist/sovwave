@@ -37,11 +37,14 @@ include("Loss.jl")
 include("Evolution.jl")
 include("HuggingFace.jl")
 include("PretrainedVocab.jl")
+include("PhoneticWaveTokenizer.jl")
+using .PhoneticWaveTokenizer
 include("Tokenizer.jl")
 include("TokenizerConverter.jl")
 include("Dataset.jl")
 include("Heads.jl")
 include("ModelTypes.jl")
+include("TextValidation.jl")
 include("Sonify.jl")
 include("Training.jl")
 include("Serialize.jl")
@@ -72,7 +75,7 @@ export FractalLatticeConfig, evaluate_fractal_layer!, compress_layer_to_fractal,
 
 # Public exports: Model
 export WaveModel
-export model_energy, clone
+export model_energy, clone, forward_continuous_wave!
 
 # Public exports: Loss
 export compute_loss, energy_loss, mmd_loss, resonance_loss, interference_loss, wave_accuracy
@@ -83,6 +86,8 @@ export init_population, evaluate_population!, evolve_generation!
 
 # Public exports: Tokenizer & Converter
 export WaveForm, WaveTokenizer, default_tokenizer, build_tokenizer
+export PhoneticTokenizer, phonetic_tokenizer, tokenize_phonetic, decode_phonetic
+export text_to_phonetic_wave, phonetic_wave_to_text
 export tokenize, tokenize_ids, decode, to_wave_form, to_audio, sonify_tokens
 export to_wave_packet, encode_sequence, decode_embedding, decode_sequence_embeddings
 export unicode_wave_frequency, unicode_wave_phase, token_wave_frequency, token_wave_phase, register_token!
@@ -93,6 +98,7 @@ export save_tokenizer, load_tokenizer, custom_tokenizer
 # Public exports: Dataset
 export WaveDataset, WaveDataLoader, WaveDataStreamer
 export format_tabular, format_text, format_lm_text, format_images, format_timeseries, format_jev, format_dataset
+export encode_wave_context
 export process_pixel_waves, process_wave_tokens, process_digital_data, stream_dataset
 export num_samples, batch_size, num_batches
 
@@ -105,6 +111,9 @@ export WaveHead, create_head, apply_head, head_loss, mutate_head!
 # Public exports: Model Types
 export generate_text, generate_image, generate_3d, jev_decide, generate_video
 export register_model_type!, list_model_types
+
+# Public exports: Text Validation
+export check_text_coherence, CoherenceResult
 
 # Public exports: Introspection
 export num_layers, parameter_count, get_layer, layer_details, model_summary, inspect_model
@@ -131,6 +140,7 @@ export hybrid_forward!, hybrid_forward_batch, hybrid_project_vocab, hybrid_evalu
 export create_model
 export edit_layer!, edit_model!, modulate_frequencies!, shift_phases!, scale_amplitudes!, inspect_harmonics
 export load_dataset, validate_dataset, process_to_waves
+export process_image_to_waves, process_audio_to_waves, process_video_to_waves, process_3d_to_waves, process_jev_to_waves, decode_jev_decision, COLOR_PALETTES
 export WaveResonator, WaveChamber
 export WaveMechanicsOptimizer, step_mechanics!, apply_wave_mechanics!
 export train_async, train_wave, AsyncTrainingHandle

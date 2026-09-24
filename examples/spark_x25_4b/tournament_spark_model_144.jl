@@ -88,6 +88,11 @@ function evaluate_spark_candidate(cand::SparkModelCandidate, seq_len::Int = 16):
     return SparkModelMetrics(cand.name, token_accuracy, avg_ce, mean_coh, kv_stability, throughput, score)
 end
 
+"""
+    get_round_spark_algorithms(round_num::Int, prev_winner::Union{Nothing, SparkModelCandidate})::Vector{SparkModelCandidate}
+
+Generates candidate continuous wave attention algorithms for round `round_num` evolved from `prev_winner`.
+"""
 function get_round_spark_algorithms(round_num::Int, prev_winner::Union{Nothing, SparkModelCandidate})::Vector{SparkModelCandidate}
     algs = SparkModelCandidate[]
     
@@ -303,6 +308,11 @@ function get_round_spark_algorithms(round_num::Int, prev_winner::Union{Nothing, 
     return algs
 end
 
+"""
+    run_spark_tournament()
+
+Executes 144-algorithm tournament benchmarking continuous wave attention mechanisms for Spark-X2.5-4B.
+"""
 function run_spark_tournament()
     println("="^90)
     println(" 🏆 144-ALGORITHM TOURNAMENT: SPARK-X2.5-4B CONTINUOUS WAVE MODEL 🏆")

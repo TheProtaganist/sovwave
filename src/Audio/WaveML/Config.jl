@@ -28,6 +28,7 @@ struct WaveFieldConfig
     dimensions::Int
     distribution::Symbol
 
+    # Validating keyword constructor for WaveFieldConfig
     function WaveFieldConfig(;
         n_points::Int = 128,
         properties::Vector{Symbol} = [:mass, :charge, :energy, :spin],
@@ -60,9 +61,10 @@ struct WaveModelConfig
     beta_s::Float64
     t_frames::Int
 
+    # Validating keyword constructor for WaveModelConfig
     function WaveModelConfig(;
         layers::Int = 4,
-        embed_dims::Int = 32,
+        embed_dims::Int = 64,
         nodes::Int = 64,
         omega::Float64 = 432.0,
         beta_s::Float64 = 1.618033988749895,
@@ -81,17 +83,17 @@ end
 """
     WaveTrainConfig
 
-Configuration for wave evolution training.
-- `batch_size::Int`: Batch size b
-- `learning_rate::Float64`: lr (mutation amplitude scale)
-- `epochs::Int`: Number of training epochs
-- `population_size::Int`: Number of wave models in evolution population
-- `elite_fraction::Float64`: Proportion of elite models preserved per generation
-- `mutation_decay::Float64`: Annealing factor for mutation amplitude
-- `energy_target::Float64`: Target ground-state energy for early stopping
-- `sonify::Bool`: Option to hear training as sound (saved as WAV)
-- `sonify_realtime::Bool`: Option to also play training audio through system speakers in real-time
-- `audio_sample_rate::Int`: Sample rate for sonification (Hz)
+Configuration for the continuous evolutionary and physical relaxation training loop.
+- `batch_size::Int`: Mini-batch size
+- `learning_rate::Float64`: Step size / perturbation rate
+- `epochs::Int`: Total training epochs
+- `population_size::Int`: Population size for evolutionary exploration
+- `elite_fraction::Float64`: Top performers preserved per cycle
+- `mutation_decay::Float64`: Geometric temperature decay factor
+- `energy_target::Float64`: Convergence energy threshold
+- `sonify::Bool`: Sonify training progress to audio
+- `sonify_realtime::Bool`: Stream audio in real-time
+- `audio_sample_rate::Int`: Sample rate for sonification
 """
 struct WaveTrainConfig
     batch_size::Int
@@ -105,6 +107,7 @@ struct WaveTrainConfig
     sonify_realtime::Bool
     audio_sample_rate::Int
 
+    # Validating keyword constructor for WaveTrainConfig
     function WaveTrainConfig(;
         batch_size::Int = 16,
         learning_rate::Float64 = 0.05,
@@ -164,6 +167,7 @@ struct WaveAudioConfig
     channels::Int
     realtime_player::String
 
+    # Validating keyword constructor for WaveAudioConfig
     function WaveAudioConfig(;
         carrier_frequency::Float64 = 432.0,
         tuning_standard::Float64 = 432.0,
@@ -207,7 +211,9 @@ struct WaveVideoConfig
     fps::Int
     frames::Int
     state_colors::Vector{Vector{Float64}}
+    palette::Symbol
 
+    # Validating keyword constructor for WaveVideoConfig
     function WaveVideoConfig(;
         render_mode::Symbol = :potts_model_q_state_domains,
         pixel_scale::Int = 2,
@@ -218,10 +224,11 @@ struct WaveVideoConfig
             [1.0, 0.0, 1.0], # State 0: FF00FF (Magenta)
             [1.0, 1.0, 0.0], # State 1: FFFF00 (Yellow)
             [0.0, 1.0, 1.0]  # State 2: 00FFFF (Cyan)
-        ]
+        ],
+        palette::Symbol = :default
     )
         actual_mode = render_mode == :potts_champion ? :potts_model_q_state_domains : render_mode
-        new(actual_mode, pixel_scale, target_height, fps, frames, state_colors)
+        new(actual_mode, pixel_scale, target_height, fps, frames, state_colors, palette)
     end
 end
 
@@ -237,6 +244,7 @@ struct WaveMLConfig
     audio::WaveAudioConfig
     video::WaveVideoConfig
 
+    # Default keyword constructor combining all sub-system configurations
     function WaveMLConfig(;
         field::WaveFieldConfig = WaveFieldConfig(),
         model::WaveModelConfig = WaveModelConfig(),
@@ -388,7 +396,8 @@ function load_config(path::String)::WaveMLConfig
         target_height = Int(get(v_dict, "target_height", 480)),
         fps = Int(get(v_dict, "fps", 4)),
         frames = Int(get(v_dict, "frames", 12)),
-        state_colors = colors
+        state_colors = colors,
+        palette = Symbol(get(v_dict, "palette", "default"))
     )
 
     return WaveMLConfig(field=field, model=model, train=train, audio=audio, video=video)
@@ -450,7 +459,8 @@ function save_config(cfg::WaveMLConfig, path::String)::Nothing
             "target_height" => cfg.video.target_height,
             "fps" => cfg.video.fps,
             "frames" => cfg.video.frames,
-            "state_colors" => cfg.video.state_colors
+            "state_colors" => cfg.video.state_colors,
+            "palette" => String(cfg.video.palette)
         )
     )
     YAML.write_file(path, dict)

@@ -13,6 +13,11 @@ using Sovwave.WaveML
 using LinearAlgebra
 using Printf
 
+"""
+    main()
+
+Executes single continuous wave oscillator demonstration solving non-linear binary XOR.
+"""
 function main()
     println("="^80)
     println(" 🌊 SOVWAVE EXAMPLE: SIMPLE CONTINUOUS WAVE NEURON (ON/OFF) 🌊")

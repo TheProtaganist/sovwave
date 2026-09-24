@@ -2,9 +2,13 @@
 
 # Backup script for the entire project
 # Creates numbered backups with automatic rotation (max 3 backups)
-# Naming format: {project_name}_XXX_Stable.tar.gz or {project_name}_XXX_Development.tar.gz
-# Usage: ./backup.sh [--stable|--development]
+# Naming format: {project_name}_XXX_Perfected.tar.gz, {project_name}_XXX_Stable.tar.gz, or {project_name}_XXX_Development.tar.gz
+# Usage: ./backup.sh [--perfected|--stable|--development]
 # Default: --stable
+
+# Ensure we run from the project root directory where backup.sh resides
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
 
 # Define backup directory
 BACKUP_DIR="Backups"
@@ -14,7 +18,9 @@ MAX_BACKUPS=3
 STABILITY="Stable"  # Default to Stable
 
 if [ -n "$1" ]; then
-    if [ "$1" == "--development" ] || [ "$1" == "-d" ]; then
+    if [ "$1" == "--perfected" ] || [ "$1" == "-p" ]; then
+        STABILITY="Perfected"
+    elif [ "$1" == "--development" ] || [ "$1" == "-d" ]; then
         STABILITY="Development"
     elif [ "$1" == "--stable" ] || [ "$1" == "-s" ]; then
         STABILITY="Stable"
@@ -24,16 +30,19 @@ if [ -n "$1" ]; then
         echo "Usage: ./backup.sh [OPTION]"
         echo ""
         echo "Options:"
+        echo "  --perfected, -p     Create a Perfected backup"
         echo "  --stable, -s        Create a Stable backup (default)"
         echo "  --development, -d   Create a Development backup"
         echo "  --help, -h          Show this help message"
         echo ""
         echo "Examples:"
         echo "  ./backup.sh                    # Creates Stable backup"
+        echo "  ./backup.sh --perfected        # Creates Perfected backup"
         echo "  ./backup.sh --stable           # Creates Stable backup"
         echo "  ./backup.sh --development      # Creates Development backup"
         echo ""
         echo "Backup naming format:"
+        echo "  {ProjectName}_XXX_Perfected.tar.gz"
         echo "  {ProjectName}_XXX_Stable.tar.gz"
         echo "  {ProjectName}_XXX_Development.tar.gz"
         echo ""
@@ -43,12 +52,14 @@ if [ -n "$1" ]; then
         echo "❌ Error: Invalid option '$1'"
         echo ""
         echo "Valid options:"
+        echo "  --perfected, -p     Create a Perfected backup"
         echo "  --stable, -s        Create a Stable backup (default)"
         echo "  --development, -d   Create a Development backup"
         echo "  --help, -h          Show help message"
         echo ""
         echo "Examples:"
         echo "  ./backup.sh                    # Creates Stable backup"
+        echo "  ./backup.sh --perfected        # Creates Perfected backup"
         echo "  ./backup.sh --stable           # Creates Stable backup"
         echo "  ./backup.sh --development      # Creates Development backup"
         echo ""
@@ -66,15 +77,20 @@ PROJECT_NAME="${PROJECT_ROOT}"
 
 # Find the highest existing backup number for this stability level
 HIGHEST_NUM=0
+shopt -s nullglob
 for backup_file in "${BACKUP_DIR}/${PROJECT_NAME}_"*"_${STABILITY}.tar.gz"; do
     if [ -f "$backup_file" ]; then
         # Extract the number from the filename
-        NUM=$(basename "$backup_file" | sed "s/${PROJECT_NAME}_\([0-9]\{3\}\)_${STABILITY}\.tar\.gz/\1/")
-        if [ "$NUM" -gt "$HIGHEST_NUM" ]; then
-            HIGHEST_NUM=$NUM
+        NUM_STR=$(basename "$backup_file" | sed -n "s/${PROJECT_NAME}_\([0-9]\{3\}\)_${STABILITY}\.tar\.gz/\1/p")
+        if [ -n "$NUM_STR" ]; then
+            NUM_INT=$((10#$NUM_STR))
+            if [ "$NUM_INT" -gt "$HIGHEST_NUM" ]; then
+                HIGHEST_NUM=$NUM_INT
+            fi
         fi
     fi
 done
+shopt -u nullglob
 
 # Calculate next number (wrap around after 999)
 NEXT_NUM=$((HIGHEST_NUM + 1))
@@ -118,7 +134,8 @@ if [ $? -eq 0 ]; then
     
     echo ""
     echo "📊 Current backups:"
-    echo "   Stable: $(ls -1 "${BACKUP_DIR}/${PROJECT_NAME}_"*"_Stable.tar.gz" 2>/dev/null | wc -l)"
+    echo "   Perfected:   $(ls -1 "${BACKUP_DIR}/${PROJECT_NAME}_"*"_Perfected.tar.gz" 2>/dev/null | wc -l)"
+    echo "   Stable:      $(ls -1 "${BACKUP_DIR}/${PROJECT_NAME}_"*"_Stable.tar.gz" 2>/dev/null | wc -l)"
     echo "   Development: $(ls -1 "${BACKUP_DIR}/${PROJECT_NAME}_"*"_Development.tar.gz" 2>/dev/null | wc -l)"
 else
     echo "❌ Error: Backup failed!"

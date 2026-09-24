@@ -2,13 +2,20 @@
 Sovwave MKV Model Runtime — Python 3.8+
 
 Loads a trained Sovwave .mkv model and runs inference with zero Julia dependency.
-Requires: Python 3.8+, ffmpeg in PATH, PyYAML (optional but recommended).
+Supports:
+1. Zero-DC physical nodal wave superposition:
+     E_i = sum_j (A_{i, j} * cos(phi_{i, j}) * x_j)
+     psi_i = sin(E_i)
+     hat_psi = psi / ||psi||_2
+2. Lossless MKV container attachment extraction (waveml_model.bin)
+3. Optical RGB video frame decoding (Centroid Kernel Sampling fallback)
+4. Autoregressive text generation and next-token prediction
 
 Usage:
     from sovwave_runtime import SovwaveModel
-    model = SovwaveModel.load("my_model.mkv", "my_model_meta.yaml")
-    outputs = model.predict([[0.1, 0.2, 0.3, 0.4]])
-    print(outputs)
+    model = SovwaveModel.load("spark_model.mkv")
+    output = model.predict([[0.1, 0.2, 0.3, 0.4]])
+    print(output)
 """
 
 import subprocess
@@ -16,6 +23,7 @@ import struct
 import math
 import os
 import sys
+import tempfile
 
 try:
     import yaml as _yaml
@@ -24,51 +32,108 @@ except ImportError:
     _HAS_YAML = False
 
 
-# ── Wave forward pass (mirrors Julia WaveLayer.forward!) ─────────────────────
+# ── Wave forward pass (mirrors Julia WaveModel.forward_continuous_wave!) ──────
 
 def _wave_forward(layer_params, input_values, t=0.0):
     """
-    CPU forward pass for one WaveLayer.
-    layer_params: dict with keys 'nodes', 'embed_dim', 'amplitudes', 'phases',
-                  'frequencies', 'fractal_scales', 'fractal_dims', 'wave_speeds', 'omega'
+    Physical zero-DC nodal wave superposition:
+      E_i = sum_j A_{i, j} * cos(phi_{i, j}) * x_j
+      psi_i = sin(E_i)
+      hat_psi = psi / ||psi||_2
     """
     nodes     = layer_params["nodes"]
     embed_dim = layer_params["embed_dim"]
-    amps      = layer_params["amplitudes"]    # list[list[float]], shape [nodes][embed_dim]
+    amps      = layer_params["amplitudes"]    # [nodes][embed_dim]
     phs       = layer_params["phases"]
-    freqs     = layer_params["frequencies"]
-    fscales   = layer_params["fractal_scales"]
-    fdims     = layer_params["fractal_dims"]
-    wspeeds   = layer_params["wave_speeds"]
-    omega     = layer_params["omega"]
     in_len    = len(input_values)
     output    = [0.0] * nodes
 
     for i in range(nodes):
-        beta    = fscales[i]
-        d_f     = fdims[i]
-        v_spd   = wspeeds[i]
-        frac_env = d_f / 1.5
+        E_i = 0.0
+        row_amps = amps[i]
+        row_phs  = phs[i]
+        for j in range(min(in_len, embed_dim)):
+            E_i += row_amps[j] * math.cos(row_phs[j]) * input_values[j]
+        output[i] = math.sin(E_i)
 
-        node_sum = 0.0
-        for j in range(embed_dim):
-            in_val = input_values[j] if j < in_len else 0.5
-            amp  = amps[i][j]
-            ph   = phs[i][j]
-            freq = freqs[i][j]
-
-            # Speed-aware phase
-            x_eff = in_val if v_spd == -1.0 else in_val / max(v_spd, 1e-12)
-            angle = omega * 0.001 * freq * x_eff + ph - t
-            node_sum += amp * math.sin(angle)
-
-        node_wave = (node_sum / math.sqrt(embed_dim)) * beta * frac_env
-        output[i] = node_wave
+    # Unit L2 sphere projection
+    nrm = math.sqrt(sum(v * v for v in output))
+    if nrm > 1e-6:
+        output = [v / nrm for v in output]
 
     return output
 
 
-# ── Pixel → weight decoding (mirrors Julia rgb_frames_to_model) ──────────────
+# ── Lossless Matroska Container Attachment Extraction ────────────────────────
+
+def _extract_lossless_attachment(mkv_path):
+    """
+    Extracts the lossless binary model weights embedded directly inside the MKV container.
+    Returns (layers, nodes, embed_dim, omega, beta_s) if present, else None.
+    """
+    with tempfile.NamedTemporaryFile(suffix="_weights.dat", delete=False) as tmp:
+        tmp_path = tmp.name
+    try:
+        cmd = ["ffmpeg", "-y", "-loglevel", "error", "-dump_attachment:t:0", tmp_path, "-i", mkv_path, "-f", "null", "-"]
+        res = subprocess.run(cmd, capture_output=True)
+        if res.returncode == 0 and os.path.isfile(tmp_path) and os.path.getsize(tmp_path) >= 32:
+            with open(tmp_path, "rb") as f:
+                raw = f.read()
+            if raw[:4] == b"SOVW":
+                version, num_layers, nodes, embed_dim = struct.unpack("<4i", raw[4:20])
+                omega, beta_s = struct.unpack("<2d", raw[20:36])
+                offset = 36
+                layers = []
+                for _ in range(num_layers):
+                    floats_per_mat = nodes * embed_dim
+                    mat_bytes = floats_per_mat * 4
+
+                    amps_flat = struct.unpack(f"<{floats_per_mat}f", raw[offset:offset + mat_bytes])
+                    offset += mat_bytes
+                    phs_flat = struct.unpack(f"<{floats_per_mat}f", raw[offset:offset + mat_bytes])
+                    offset += mat_bytes
+                    freqs_flat = struct.unpack(f"<{floats_per_mat}f", raw[offset:offset + mat_bytes])
+                    offset += mat_bytes
+                    scales = list(struct.unpack(f"<{nodes}f", raw[offset:offset + nodes * 4]))
+                    offset += nodes * 4
+
+                    # Julia stores column-major; reconstruct [nodes][embed_dim]
+                    amps = [[0.0]*embed_dim for _ in range(nodes)]
+                    phs = [[0.0]*embed_dim for _ in range(nodes)]
+                    freqs = [[0.0]*embed_dim for _ in range(nodes)]
+                    idx = 0
+                    for c in range(embed_dim):
+                        for r in range(nodes):
+                            a = amps_flat[idx]
+                            p = phs_flat[idx]
+                            # Canonicalize amplitude A >= 0
+                            if a < 0.0:
+                                a = -a
+                                p = (p + math.pi) % (2.0 * math.pi)
+                            amps[r][c] = a
+                            phs[r][c] = p
+                            freqs[r][c] = freqs_flat[idx]
+                            idx += 1
+
+                    layers.append({
+                        "nodes": nodes, "embed_dim": embed_dim,
+                        "amplitudes": amps, "phases": phs, "frequencies": freqs,
+                        "fractal_scales": scales, "fractal_dims": [1.5]*nodes,
+                        "wave_speeds": [1.0]*nodes, "omega": omega
+                    })
+                return layers, nodes, embed_dim, omega, beta_s
+    except Exception:
+        pass
+    finally:
+        if os.path.isfile(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+    return None
+
+
+# ── Pixel → weight decoding (Optical Fallback) ────────────────────────────────
 
 def _decode_pixels(raw_bytes, w, h, num_layers, nodes, embed_dim, omega, beta_s=1.618033988749895):
     """Decodes video frames directly into layer parameters using Tournament 8 Centroid Kernel Sampling."""
@@ -107,8 +172,10 @@ def _decode_pixels(raw_bytes, w, h, num_layers, nodes, embed_dim, omega, beta_s=
                     r_b = r_acc / count
                     g_b = g_acc / count
                     b_b = b_acc / count
-                    amps[r][c]  = (r_b / 255.0) * 2.0
-                    phs[r][c]   = (g_b / 255.0) * (2 * math.pi)
+                    amp = (r_b / 255.0) * 2.0
+                    ph  = (g_b / 255.0) * (2 * math.pi)
+                    amps[r][c]  = max(0.0, amp)
+                    phs[r][c]   = ph % (2 * math.pi)
                     freqs[r][c] = max(0.1, (b_b / 255.0) * 4.0)
                 else:
                     amps[r][c]  = 0.5
@@ -141,7 +208,7 @@ class SovwaveModel:
     t_frames : int
     """
 
-    def __init__(self, layers, nodes, embed_dim, omega=432.0, t_frames=3):
+    def __init__(self, layers, nodes, embed_dim, omega=432.0, t_frames=1):
         self.layers     = layers
         self.nodes      = nodes
         self.embed_dim  = embed_dim
@@ -152,29 +219,27 @@ class SovwaveModel:
     def load(cls, mkv_path, meta_path=None):
         """
         Load a SovwaveModel from an MKV video file.
-
-        Parameters
-        ----------
-        mkv_path : str  — path to the .mkv model file
-        meta_path : str — path to the _meta.yaml config (optional; uses defaults if missing)
-
-        Returns
-        -------
-        SovwaveModel
+        Attempts lossless container attachment extraction first, then optical frames.
         """
         if not os.path.isfile(mkv_path):
             raise FileNotFoundError(f"Model file not found: {mkv_path}")
 
-        # ── Load metadata ──────────────────────────────────────────────────
+        # 1. Try lossless Matroska container attachment extraction
+        if mkv_path.lower().endswith(".mkv"):
+            att_result = _extract_lossless_attachment(mkv_path)
+            if att_result is not None:
+                layers, nodes, embed_dim, omega, _ = att_result
+                return cls(layers, nodes, embed_dim, omega, 1)
+
+        # 2. Optical video frame decoding fallback
         nodes      = 64
         embed_dim  = 64
         num_layers = 3
         omega      = 432.0
-        t_frames   = 3
+        t_frames   = 1
         beta_s     = 1.618033988749895
 
         if meta_path is None:
-            # Auto-detect companion YAML
             candidate = os.path.splitext(mkv_path)[0].replace(".mkv", "") + "_meta.yaml"
             if os.path.isfile(candidate):
                 meta_path = candidate
@@ -191,41 +256,24 @@ class SovwaveModel:
                 t_frames   = model_cfg.get("t_frames", t_frames)
                 beta_s     = model_cfg.get("beta_s", beta_s)
             else:
-                print("[sovwave] PyYAML not installed — using default config. Run: pip install pyyaml", file=sys.stderr)
+                print("[sovwave] PyYAML not installed — using default config.", file=sys.stderr)
 
-        # ── Extract video frames directly via ffmpeg (640x480 standard) ────
         w = 640
         h = 480
-
         raw_bytes = _extract_data_stream(mkv_path)
         layers    = _decode_pixels(raw_bytes, w, h, num_layers, nodes, embed_dim, omega, beta_s)
         return cls(layers, nodes, embed_dim, omega, t_frames)
 
     def forward(self, input_values, t=0.0):
-        """Run one forward pass through all layers."""
+        """Run single-frame continuous physical wave propagation through all layers."""
         current = list(input_values)
         for layer in self.layers:
-            accum = [0.0] * layer["nodes"]
-            for frame in range(self.t_frames):
-                t_offset = t + 2 * math.pi * frame / (self.omega + 1e-12)
-                out = _wave_forward(layer, current, t_offset)
-                accum = [accum[k] + out[k] for k in range(len(accum))]
-            scale = 1.0 / math.sqrt(self.t_frames)
-            current = [v * scale for v in accum]
+            current = _wave_forward(layer, current, t)
         return current
 
     def predict(self, inputs, t=0.0):
         """
         Run inference on a batch of inputs.
-
-        Parameters
-        ----------
-        inputs : list[list[float]]  — batch of input vectors
-        t : float                   — starting time offset
-
-        Returns
-        -------
-        list[list[float]]           — batch of output vectors
         """
         return [self.forward(inp, t) for inp in inputs]
 

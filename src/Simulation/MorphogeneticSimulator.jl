@@ -27,6 +27,7 @@ struct MorphogeneticConfig
     dt::Float64
     dx::Float64
     
+    # Primary keyword constructor configuring Gross-Pitaevskii spatial discretization parameters
     function MorphogeneticConfig(;
         hbar::Float64 = 1.0,
         m::Float64 = 1.0,

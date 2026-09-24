@@ -2,11 +2,17 @@
  * sovwave_runtime.hpp — Sovwave MKV Model Runtime (C++17, header-only)
  *
  * Loads a trained Sovwave .mkv model and runs inference with zero Julia dependency.
- * Requires: C++17 compiler, ffmpeg in PATH.
+ * Supports:
+ * 1. Physical zero-DC nodal wave superposition:
+ *      E_i = sum_j (A_{i, j} * cos(phi_{i, j}) * x_j)
+ *      psi_i = sin(E_i)
+ *      hat_psi = psi / ||psi||_2
+ * 2. Lossless MKV container attachment extraction (waveml_model.bin)
+ * 3. Optical RGB video frame decoding (Centroid Kernel Sampling fallback)
  *
  * Usage:
  *   #include "sovwave_runtime.hpp"
- *   auto model = sovwave::SovwaveModel::load("my_model.mkv", "my_model_meta.yaml");
+ *   auto model = sovwave::SovwaveModel::load("spark_model.mkv");
  *   auto output = model.predict({{0.1, 0.2, 0.3, 0.4}});
  */
 
@@ -22,6 +28,8 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <unistd.h>
+#include <cstdlib>
 
 namespace sovwave {
 
@@ -61,30 +69,50 @@ inline std::vector<double> wave_forward(
     std::vector<double> output(n, 0.0);
 
     for (int i = 0; i < n; ++i) {
-        double beta    = layer.fractal_scales[i];
-        double d_f     = layer.fractal_dims[i];
-        double v_spd   = layer.wave_speeds[i];
-        double frac_env = d_f / 1.5;
-        double node_sum = 0.0;
-
-        for (int j = 0; j < d; ++j) {
-            double in_val = (j < ilen) ? input_values[j] : 0.5;
-            double amp    = layer.amplitudes[i][j];
-            double ph     = layer.phases[i][j];
-            double freq   = layer.frequencies[i][j];
-
-            // Speed-aware phase: -1.0 = unlimited (no speed divisor)
-            double x_eff = (v_spd == -1.0) ? in_val : in_val / std::max(v_spd, 1e-12);
-            double angle = layer.omega * 0.001 * freq * x_eff + ph - t;
-            node_sum += amp * std::sin(angle);
+        double E_i = 0.0;
+        const auto& row_amps = layer.amplitudes[i];
+        const auto& row_phs  = layer.phases[i];
+        int limit = std::min(ilen, d);
+        for (int j = 0; j < limit; ++j) {
+            E_i += row_amps[j] * std::cos(row_phs[j]) * input_values[j];
         }
+        output[i] = std::sin(E_i);
+    }
 
-        output[i] = (node_sum / std::sqrt(static_cast<double>(d))) * beta * frac_env;
+    // Unit L2 sphere projection
+    double sq_sum = 0.0;
+    for (int i = 0; i < n; ++i) sq_sum += output[i] * output[i];
+    double nrm = std::sqrt(sq_sum);
+    if (nrm > 1e-6) {
+        for (int i = 0; i < n; ++i) output[i] /= nrm;
     }
     return output;
 }
 
-// ── Pixel → weight decoding ───────────────────────────────────────────────────
+// ── ffmpeg pipe helper ────────────────────────────────────────────────────────
+
+inline std::vector<uint8_t> read_pipe(const std::string& cmd) {
+    std::vector<uint8_t> buf;
+#ifdef _WIN32
+    FILE* pipe = _popen(cmd.c_str(), "rb");
+#else
+    FILE* pipe = popen(cmd.c_str(), "r");
+#endif
+    if (!pipe) return buf;
+    uint8_t chunk[4096];
+    size_t n;
+    while ((n = std::fread(chunk, 1, sizeof(chunk), pipe)) > 0) {
+        buf.insert(buf.end(), chunk, chunk + n);
+    }
+#ifdef _WIN32
+    _pclose(pipe);
+#else
+    pclose(pipe);
+#endif
+    return buf;
+}
+
+// ── Pixel → weight decoding (Optical Fallback) ─────────────────────────────────
 
 inline std::vector<WaveLayerParams> decode_pixels(
     const std::vector<uint8_t>& raw_bytes,
@@ -124,8 +152,14 @@ inline std::vector<WaveLayerParams> decode_pixels(
                     }
                 }
                 if (count > 0) {
-                    lp.amplitudes[r][c]  = (r_acc / count / 255.0) * 2.0;
-                    lp.phases[r][c]      = (g_acc / count / 255.0) * (2.0 * M_PI);
+                    double a = (r_acc / count / 255.0) * 2.0;
+                    double p = (g_acc / count / 255.0) * (2.0 * M_PI);
+                    if (a < 0.0) {
+                        a = -a;
+                        p = std::fmod(p + M_PI, 2.0 * M_PI);
+                    }
+                    lp.amplitudes[r][c]  = a;
+                    lp.phases[r][c]      = p;
                     lp.frequencies[r][c] = std::max(0.1, (b_acc / count / 255.0) * 4.0);
                 } else {
                     lp.amplitudes[r][c]  = 0.5;
@@ -137,30 +171,6 @@ inline std::vector<WaveLayerParams> decode_pixels(
         layers.push_back(std::move(lp));
     }
     return layers;
-}
-
-// ── ffmpeg pipe helper ────────────────────────────────────────────────────────
-
-inline std::vector<uint8_t> read_pipe(const std::string& cmd) {
-    std::vector<uint8_t> buf;
-#ifdef _WIN32
-    FILE* pipe = _popen(cmd.c_str(), "rb");
-#else
-    FILE* pipe = popen(cmd.c_str(), "r");
-#endif
-    if (!pipe) throw std::runtime_error("Failed to open ffmpeg pipe");
-    uint8_t chunk[4096];
-    while (true) {
-        size_t n = fread(chunk, 1, sizeof(chunk), pipe);
-        if (n == 0) break;
-        buf.insert(buf.end(), chunk, chunk + n);
-    }
-#ifdef _WIN32
-    _pclose(pipe);
-#else
-    pclose(pipe);
-#endif
-    return buf;
 }
 
 // ── Model class ───────────────────────────────────────────────────────────────
@@ -180,17 +190,86 @@ public:
      * @param meta_path Path to the _meta.yaml config (empty string = auto-detect)
      */
     static SovwaveModel load(const std::string& mkv_path, const std::string& meta_path = "") {
+        // 1. Try lossless Matroska container attachment extraction first
+        if (mkv_path.size() >= 4 && mkv_path.substr(mkv_path.size() - 4) == ".mkv") {
+            char tmp_template[] = "/tmp/sw_weights_XXXXXX";
+            int fd = mkstemp(tmp_template);
+            if (fd != -1) {
+                close(fd);
+                std::string tmp_bin(tmp_template);
+                std::string dump_cmd = "ffmpeg -y -loglevel error -dump_attachment:t:0 \"" + tmp_bin + "\" -i \"" + mkv_path + "\" -f null -";
+                int ret = std::system(dump_cmd.c_str());
+                std::ifstream bf(tmp_bin, std::ios::binary);
+                if (ret == 0 && bf.is_open()) {
+                    bf.seekg(0, std::ios::end);
+                    size_t sz = bf.tellg();
+                    bf.seekg(0, std::ios::beg);
+                    if (sz >= 36) {
+                        std::vector<uint8_t> raw(sz);
+                        bf.read(reinterpret_cast<char*>(raw.data()), sz);
+                        bf.close();
+                        std::remove(tmp_bin.c_str());
+
+                        if (raw[0] == 'S' && raw[1] == 'O' && raw[2] == 'V' && raw[3] == 'W') {
+                            int num_layers_att = *reinterpret_cast<const int32_t*>(&raw[8]);
+                            int nodes_att      = *reinterpret_cast<const int32_t*>(&raw[12]);
+                            int embed_dim_att  = *reinterpret_cast<const int32_t*>(&raw[16]);
+                            double omega_att   = *reinterpret_cast<const double*>(&raw[20]);
+                            size_t off = 36;
+                            std::vector<WaveLayerParams> att_layers;
+                            att_layers.reserve(num_layers_att);
+
+                            for (int l = 0; l < num_layers_att; ++l) {
+                                WaveLayerParams lp(nodes_att, embed_dim_att, omega_att);
+                                size_t floats_per_mat = nodes_att * embed_dim_att;
+                                const float* amp_ptr  = reinterpret_cast<const float*>(&raw[off]);
+                                off += floats_per_mat * sizeof(float);
+                                const float* ph_ptr   = reinterpret_cast<const float*>(&raw[off]);
+                                off += floats_per_mat * sizeof(float);
+                                const float* freq_ptr = reinterpret_cast<const float*>(&raw[off]);
+                                off += floats_per_mat * sizeof(float);
+                                const float* sc_ptr   = reinterpret_cast<const float*>(&raw[off]);
+                                off += nodes_att * sizeof(float);
+
+                                size_t idx = 0;
+                                for (int c = 0; c < embed_dim_att; ++c) {
+                                    for (int r = 0; r < nodes_att; ++r) {
+                                        double a = amp_ptr[idx];
+                                        double p = ph_ptr[idx];
+                                        if (a < 0.0) {
+                                            a = -a;
+                                            p = std::fmod(p + M_PI, 2.0 * M_PI);
+                                        }
+                                        lp.amplitudes[r][c]  = a;
+                                        lp.phases[r][c]      = p;
+                                        lp.frequencies[r][c] = freq_ptr[idx];
+                                        idx++;
+                                    }
+                                }
+                                for (int r = 0; r < nodes_att; ++r) {
+                                    lp.fractal_scales[r] = sc_ptr[r];
+                                }
+                                att_layers.push_back(std::move(lp));
+                            }
+                            return SovwaveModel(std::move(att_layers), nodes_att, embed_dim_att, omega_att, 1);
+                        }
+                    }
+                    if (bf.is_open()) bf.close();
+                }
+                std::remove(tmp_bin.c_str());
+            }
+        }
+
+        // 2. Optical video frame decoding fallback
         int    nodes      = 64;
         int    embed_dim  = 64;
         int    num_layers = 3;
         double omega      = 432.0;
-        int    t_frames   = 3;
+        int    t_frames   = 1;
         double beta_s     = 1.618033988749895;
 
-        // Parse YAML manually (no dependency) — simple key: value search
         std::string actual_meta = meta_path;
         if (actual_meta.empty()) {
-            // Auto-detect: replace .mkv with _meta.yaml
             actual_meta = mkv_path;
             auto pos = actual_meta.rfind(".mkv");
             if (pos != std::string::npos) actual_meta.replace(pos, 4, "_meta.yaml");
@@ -229,7 +308,6 @@ public:
         int w = 640;
         int h = 480;
 
-        // Extract video frames directly from Stream 0:v:0 via ffmpeg
         auto raw = _extract_stream(mkv_path);
         auto lps = decode_pixels(raw, w, h, num_layers, nodes, embed_dim, omega, beta_s);
         return SovwaveModel(std::move(lps), nodes, embed_dim, omega, t_frames);
@@ -239,15 +317,7 @@ public:
     std::vector<double> forward(const std::vector<double>& input, double t = 0.0) const {
         std::vector<double> current = input;
         for (const auto& layer : layers) {
-            std::vector<double> accum(layer.nodes, 0.0);
-            for (int frame = 0; frame < t_frames; ++frame) {
-                double t_off = t + 2.0 * M_PI * frame / (omega + 1e-12);
-                auto out = wave_forward(layer, current, t_off);
-                for (int k = 0; k < layer.nodes; ++k) accum[k] += out[k];
-            }
-            double scale = 1.0 / std::sqrt(static_cast<double>(t_frames));
-            for (auto& v : accum) v *= scale;
-            current = std::move(accum);
+            current = wave_forward(layer, current, t);
         }
         return current;
     }

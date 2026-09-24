@@ -1,5 +1,6 @@
 # test/audio/test_sovwave_functions.jl — Unit tests for SovwaveFunctions.jl
 using Test
+using LinearAlgebra: norm
 using Sovwave
 using Sovwave.WaveML
 
@@ -98,4 +99,70 @@ using Sovwave.WaveML
     trained_model = train_wave(train_x, train_y; cfg=tiny_cfg, play_sound=false)
     @test length(trained_model.layers) == 2
     @test trained_model.model_config.nodes == 8
+
+    # 6. Multi-Modal Grand Champions (Tournaments 12-16)
+    # Image (Tournament 12 Winner: Harmonic Wavelet Packet Decomposition)
+    test_img = rand(Float32, 28, 28)
+    img_w = process_image_to_waves(test_img; embed_dim=16)
+    @test length(img_w) == 16
+    @test all(isfinite.(img_w))
+    @test isapprox(norm(img_w), 1.0; atol=1e-4)
+
+    # Audio (Tournament 13 Winner: Spectral Flux Acoustic Phase Field)
+    test_audio = sin.(2π .* 432.0 .* (1:1000) ./ 8000)
+    aud_w = process_audio_to_waves(test_audio; embed_dim=16)
+    @test length(aud_w) == 16
+    @test all(isfinite.(aud_w))
+    @test isapprox(norm(aud_w), 1.0; atol=1e-4)
+
+    # Video (Tournament 14 Winner: Continuous Phase Coherence Chamber)
+    test_vid = rand(Float32, 16, 16, 4)
+    vid_w = process_video_to_waves(test_vid; embed_dim=16)
+    @test length(vid_w) == 16
+    @test all(isfinite.(vid_w))
+    @test isapprox(norm(vid_w), 1.0; atol=1e-4)
+
+    # 3D (Tournament 15 Winner: Continuous 3D Wavelet Packet Decomposition)
+    test_pts = rand(Float32, 50, 3)
+    pts_w = process_3d_to_waves(test_pts; embed_dim=16)
+    @test length(pts_w) == 16
+    @test all(isfinite.(pts_w))
+    @test isapprox(norm(pts_w), 1.0; atol=1e-4)
+
+    # Jev (Tournament 16 Winner: RLCD Phase-Polarity Null Discriminator)
+    test_state = Dict("coherence" => 0.95, "entropy" => 0.05, "status" => "nominal")
+    jev_w = process_jev_to_waves(test_state; embed_dim=16)
+    @test length(jev_w) == 16
+    @test all(isfinite.(jev_w))
+    @test isapprox(norm(jev_w), 1.0; atol=1e-4)
+
+    # Jev Decision Decoding
+    dec = decode_jev_decision(jev_w, "Is system state coherent?"; threshold=0.5)
+    @test haskey(dec, :choice)
+    @test typeof(dec.choice) == Bool
+    @test haskey(dec, :confidence)
+    @test 0.0 <= dec.confidence <= 1.0
+    @test haskey(dec, :entropy)
+
+    # 7. COLOR_PALETTES & Video Serialization Colors
+    @test haskey(COLOR_PALETTES, :default)
+    @test haskey(COLOR_PALETTES, :cmy)
+    @test haskey(COLOR_PALETTES, :amber)
+    @test haskey(COLOR_PALETTES, :emerald)
+    @test haskey(COLOR_PALETTES, :spectral)
+    @test haskey(COLOR_PALETTES, :monochrome)
+
+    # Test palette matrices
+    @test size(COLOR_PALETTES[:cmy]) == (3, 3)
+    @test size(COLOR_PALETTES[:emerald]) == (3, 3)
+    @test size(COLOR_PALETTES[:amber]) == (3, 3)
+
+    # Test saving model with palette option
+    test_mkv = tempname() * ".mkv"
+    save_model(model, test_mkv; palette=:emerald)
+    @test isfile(test_mkv)
+    loaded_custom = load_model(test_mkv)
+    @test length(loaded_custom.layers) == length(model.layers)
+    rm(test_mkv, force=true)
 end
+

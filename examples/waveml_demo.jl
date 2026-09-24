@@ -18,6 +18,11 @@ using Random
 using Sovwave
 using Sovwave.Audio
 
+"""
+    run_waveml_demo()
+
+Runs complete end-to-end WaveML training, sonification, and video serialization demonstration.
+"""
 function run_waveml_demo()
     println("="^80)
     println(" 🌟 WAVEML: PURE WAVE-BASED DEEP LEARNING DEMO 🌟")

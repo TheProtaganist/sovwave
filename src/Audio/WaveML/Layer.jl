@@ -50,6 +50,7 @@ mutable struct WaveLayer
     omega::Float64
     layer_energy::Float64
 
+    # Primary inner constructor initializing zero layer energy
     function WaveLayer(
         nodes::Int,
         embed_dim::Int,
@@ -276,6 +277,11 @@ function crossover(parent_a::WaveLayer, parent_b::WaveLayer)::WaveLayer
                      fractal_dims=child_fdims, wave_speeds=child_wspeeds)
 end
 
+"""
+    Base.deepcopy(layer::WaveLayer)::WaveLayer
+
+Creates a full independent copy of a `WaveLayer` including all node matrices and fractal parameters.
+"""
 function Base.deepcopy(layer::WaveLayer)::WaveLayer
     return WaveLayer(
         layer.nodes,

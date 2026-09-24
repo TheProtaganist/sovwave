@@ -114,6 +114,11 @@ function evaluate_mnist_candidate(cand::MNISTWaveCandidate, n_trials::Int = 30):
     return MNISTWaveMetrics(cand.name, accuracy, avg_loss, avg_coh, avg_margin, throughput, score)
 end
 
+"""
+    get_round_mnist_algorithms(round_num::Int, prev_winner::Union{Nothing, MNISTWaveCandidate})::Vector{MNISTWaveCandidate}
+
+Generates candidate 2D continuous wave algorithms for round `round_num` mutated from `prev_winner`.
+"""
 function get_round_mnist_algorithms(round_num::Int, prev_winner::Union{Nothing, MNISTWaveCandidate})::Vector{MNISTWaveCandidate}
     algs = MNISTWaveCandidate[]
     
@@ -364,6 +369,11 @@ function get_round_mnist_algorithms(round_num::Int, prev_winner::Union{Nothing, 
     return algs
 end
 
+"""
+    run_mnist_tournament()
+
+Executes 144-algorithm tournament benchmarking continuous 2D wave MNIST digit classification.
+"""
 function run_mnist_tournament()
     println("="^90)
     println(" 🏆 144-ALGORITHM TOURNAMENT: CONTINUOUS WAVE MNIST CLASSIFIER 🏆")

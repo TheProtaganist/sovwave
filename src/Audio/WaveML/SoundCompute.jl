@@ -34,6 +34,7 @@ struct SoundComputeConfig
     carrier_hz::Float64
     waveguide_loss::Float64
     
+    # Primary keyword constructor configuring acoustic simulation sample rates and waveguide attenuation
     function SoundComputeConfig(;
         sample_rate::Float64 = 48000.0,
         packet_samples::Int = 32,

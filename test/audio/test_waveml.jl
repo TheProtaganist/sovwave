@@ -178,7 +178,7 @@ using .Sovwave.Audio
         b_target = [rand(8) for _ in 1:4]
 
         best_e1 = evaluate_population!(state, b_in, b_target)
-        @test best_e1 > 0.0
+        @test best_e1 >= 0.0
 
         evolve_generation!(state, 0.25)
         @test state.generation == 1

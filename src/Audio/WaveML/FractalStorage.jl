@@ -41,6 +41,7 @@ mutable struct FractalLatticeConfig
     phase_seeds::Vector{Float64}
     freq_seeds::Vector{Float64}
     
+    # Primary constructor generating harmonic seed vectors from golden ratio phase distribution
     function FractalLatticeConfig(
         nodes::Int,
         embed_dim::Int;

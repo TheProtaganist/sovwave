@@ -67,34 +67,37 @@ end
 # 1. LLM (Wave Large Language Model)
 # ============================================================================
 
+const _W_PROJ_CACHE = Dict{Tuple{UInt64, Int, Int}, Matrix{Float64}}()
+const _VALID_MASK_CACHE = Dict{Tuple{UInt64, Bool, Bool, Bool, Int}, BitVector}()
+
 """
     generate_text(
         model::WaveModel,
-        tokenizer::WaveTokenizer,
+        tokenizer::Union{WaveTokenizer, PhoneticTokenizer},
         prompt::String;
         max_new_tokens::Int = 16,
         temperature::Float64 = 0.7,
         top_k::Int = 50,
-        top_p::Float64 = 0.9
+        top_p::Float64 = 0.9,
+        min_p::Float64 = 0.05,
+        active_vocab::Union{Nothing, Set{Int}, Vector{Int}} = nothing
     )::String
 
-Autoregressively generates coherent text tokens using the trained wave model.
-Encodes context into continuous wave embeddings, propagates through quantum layers,
-and resonates the output wave state against the tokenizer's vocabulary via fast
-matrix projection and top-k / top-p nucleus sampling.
+Autoregressively generates coherent text tokens using the trained continuous wave model.
+Encodes context into continuous acoustic wave embeddings, propagates through physical quantum layers,
+and resonates the output wave state against the tokenizer's vocabulary via fast matrix projection
+with word boundary whitespace enforcement and repetition defense.
 """
-const _W_PROJ_CACHE = Dict{Tuple{UInt64, Int}, Matrix{Float64}}()
-const _VALID_MASK_CACHE = Dict{Tuple{UInt64, Bool, Bool, Bool}, BitVector}()
-
 function generate_text(
     model::WaveModel,
-    tokenizer::WaveTokenizer,
+    tokenizer::Union{WaveTokenizer, PhoneticTokenizer},
     prompt::String;
     max_new_tokens::Int = 16,
     temperature::Float64 = 0.7,
     top_k::Int = 50,
     top_p::Float64 = 0.9,
-    min_p::Float64 = 0.05
+    min_p::Float64 = 0.05,
+    active_vocab::Union{Nothing, Set{Int}, Vector{Int}} = nothing
 )::String
     wave_tokens = tokenize(tokenizer, prompt)
     token_ids = [wf.token_id for wf in wave_tokens]
@@ -107,7 +110,7 @@ function generate_text(
     tok_id = objectid(tokenizer)
 
     # Cached vocabulary wave packet projection matrix for ultra-fast resonance
-    W_proj = get!(_W_PROJ_CACHE, (tok_id, out_dim)) do
+    W_proj = get!(_W_PROJ_CACHE, (tok_id, out_dim, V)) do
         mat = Matrix{Float64}(undef, out_dim, V)
         for k in 1:V
             mat[:, k] = to_wave_packet(tokenizer, k, out_dim)
@@ -117,94 +120,126 @@ function generate_text(
 
     # Detect prompt linguistic domain to prevent cross-language token pollution
     is_cjk = any(c -> '\u4e00' <= c <= '\u9fff', prompt)
-    is_math = any(c -> c in ['∂', '∇', '∫', '∑', 'ℏ', '≈', '⊕', 'π', 'Ω', 'ψ', 'λ', '≡', '≠', '≤', '≥'], prompt)
+    is_math = any(c -> c in ['∂', '∇', '∫', '∑', 'ℏ', '≈', '⊕', 'π', 'Ω', 'ψ', 'λ', '≡', '≠', '≤', '≥', '+', '=', '*', '/', '-', '<', '>'], prompt)
     is_emoji = any(c -> Int(c) > 0x1F000, prompt)
 
-    valid_vocab_mask = get!(_VALID_MASK_CACHE, (tok_id, is_cjk, is_math, is_emoji)) do
+    valid_vocab_mask = get!(_VALID_MASK_CACHE, (tok_id, is_cjk, is_math, is_emoji, V)) do
         mask = trues(V)
-        has_bpe_space = haskey(tokenizer.vocab, "Ġthe") || haskey(tokenizer.vocab, " the")
-        if !is_cjk && !is_math && !is_emoji && V > 500
-            const_common_2letters = Set(["is", "it", "to", "in", "on", "at", "by", "he", "we", "do", "go", "so", "no", "my", "up", "as", "an", "or", "if", "be", "me", "us", "am"])
-            for k in 1:V
-                t = tokenizer.inv_vocab[k]
-                is_valid = if has_bpe_space
-                    (
-                        t in [".", ",", "!", "?", ";", ":", "-", "—"] ||
-                        ((startswith(t, "Ġ") || startswith(t, " ")) && begin
-                            rem = chop(t, head=1, tail=0)
-                            if rem == "a" || rem == "I"
-                                true
-                            elseif length(rem) == 2
-                                lowercase(rem) in const_common_2letters
-                            elseif length(rem) >= 3 && all(c -> (isletter(c) && isascii(c)) || c in "\x27-\x22", rem)
-                                !(length(rem) <= 4 && all(isuppercase, rem))
-                            else
-                                false
-                            end
-                        end)
-                    )
-                else
-                    (
-                        t in [".", ",", "!", "?", ";", ":", "-", "—"] ||
-                        (length(t) == 1 && (t == "a" || t == "I" || t == "A")) ||
-                        (length(t) == 2 && lowercase(t) in const_common_2letters) ||
-                        (length(t) >= 3 && all(c -> (isletter(c) && isascii(c)) || c in "\x27-\x22", t))
-                    )
-                end
-                mask[k] = is_valid
+        for k in 1:V
+            t = tokenizer.inv_vocab[k]
+            # Always block special internal placeholders and controls
+            if (startswith(t, "<") && endswith(t, ">") && (t in ["<PAD>", "<UNK>", "<SEP>", "<MASK>", "<|endoftext|>", "<｜end▁of▁sentence｜>"] || startswith(t, "<TOKEN_")))
+                mask[k] = false
+                continue
+            end
+            # Block tokens with 3 or more repeated consecutive identical characters (e.g. "xxxx", "ffff", "HHHH")
+            if occursin(r"(.)\1{2,}", t)
+                mask[k] = false
+                continue
+            end
+            # Block mixed digit and letter byte-merges (e.g. "046UA", "bursting145")
+            if any(isdigit, t) && any(isletter, t) && length(t) >= 3
+                mask[k] = false
+                continue
+            end
+            # Block mixed case / BPE merge artifacts (e.g. "VIitle", "AXIBcome", "economiespb")
+            s_core = (startswith(t, "Ġ") || startswith(t, " ")) ? chop(t, head=1, tail=0) : t
+            if occursin(r"[A-Z]{2,}[a-z]+|[a-z]+[A-Z]{2,}", s_core)
+                mask[k] = false
+                continue
+            end
+            # Block 3+ character all-uppercase acronym tokens unless prompt has uppercase words
+            if length(s_core) >= 3 && all(c -> isuppercase(c) && isascii(c), s_core)
+                mask[k] = false
+                continue
+            end
+            # Block tokens with strange embedded brackets or trailing underscores like "_[", "0[", "==[", "_("
+            if occursin(r"[_\[\]\(\)\{\}]{2,}|[0-9][\[\]\(\)]|[_][\[\]\(\)]|[a-zA-Z][_][\[\]\(\)]", t)
+                mask[k] = false
+                continue
+            end
+            # Allow clean digits and pure numbers
+            if all(isdigit, t) || (startswith(t, "Ġ") && all(isdigit, chop(t, head=1, tail=0)))
+                mask[k] = true
+                continue
+            end
+            # Allow all standard symbols, operators, punctuation, and newline markers
+            is_sym_or_punct(c::Char) = ispunct(c) || isspace(c) || c in "+-*/=<>^|~&%\\#@!?,.'\"`:;()[]{}Ġ Ċĉ\n\t"
+            if all(is_sym_or_punct, t)
+                mask[k] = true
+                continue
+            end
+            # Strip leading whitespace/newline marker if present
+            s_core = (startswith(t, "Ġ") || startswith(t, " ") || startswith(t, "Ċ") || startswith(t, "ĉ")) ? chop(t, head=1, tail=0) : t
+            if isempty(s_core)
+                mask[k] = true
+                continue
+            end
+            # In standard non-CJK text, block non-ASCII foreign noise unless requested
+            if !is_cjk && !is_math && !is_emoji && V > 500
+                is_ascii_text = all(c -> (isascii(c) && (isletter(c) || isdigit(c) || is_sym_or_punct(c))) || c in "\x27-\x22", s_core)
+                mask[k] = is_ascii_text
+            else
+                mask[k] = true
             end
         end
         mask
     end
 
+    alpha_decay = 0.90
     for _ in 1:max_new_tokens
-        # Encode current sequence context into continuous wave vector
-        cur_text = decode(tokenizer, token_ids)
-        seq_mat = encode_sequence(tokenizer, cur_text; max_len=max(1, length(token_ids)), embed_dim=embed_dim)
-        context_vec = vec(mean(seq_mat, dims=2))
+        # Unified continuous wave context encoding (causal phase field + wave attention)
+        context_vec = encode_wave_context(tokenizer, token_ids, embed_dim)
 
         # Propagate through wave model layers
-        output_wave = forward!(model, context_vec)
+        output_wave = forward_continuous_wave!(model, context_vec)
         out_norm = norm(output_wave)
         if out_norm > 1e-6
             output_wave ./= out_norm
         end
 
         # Fast BLAS matrix projection: resonant dot product across entire vocabulary
-        logits = (transpose(W_proj) * output_wave) ./ max(temperature, 1e-4)
+        # Contrastive resonance scale: 10 * beta_s maps bounded [-1, 1] cosine resonance to calibrated softmax logits
+        contrastive_scale = 16.18033988749895
+        logits = ((transpose(W_proj) * output_wave) .* contrastive_scale) ./ max(temperature, 1e-4)
 
         # Mask padding and out-of-domain tokens
-        logits[pad_id] = -Inf
+        if pad_id >= 1 && pad_id <= length(logits)
+            logits[pad_id] = -Inf
+        end
         logits[.!valid_vocab_mask] .= -Inf
 
         # Multi-scale Repetition Defense (Opt144 Grand Champion)
+        # Exempt whitespace and indentation tokens so code indentation (e.g. 4 spaces, tabs) functions properly
+        is_whitespace_token(id::Int) = (1 <= id <= V) && (tokenizer.inv_vocab[id] in [" ", "Ġ", "Ċ", "ĉ", "\t", "\n", "  ", "   ", "    ", "ĠĠ", "ĠĠĠ", "ĠĠĠĠ"])
+
         last_id = isempty(token_ids) ? 0 : token_ids[end]
         penult_id = length(token_ids) >= 2 ? token_ids[end-1] : 0
         ante_id = length(token_ids) >= 3 ? token_ids[end-2] : 0
 
-        # 1. Immediate 1-gram ban
-        if last_id > 0 && last_id <= V
+        # 1. Immediate 1-gram ban (exempt whitespace and code indentation)
+        if last_id > 0 && last_id <= length(logits) && !is_whitespace_token(last_id)
             logits[last_id] = -Inf
         end
 
-        # 2. Strict 2-gram blocking
-        if penult_id > 0 && length(token_ids) >= 4
+        # 2. Strict 2-gram blocking (exempt whitespace and code indentation)
+        if penult_id > 0 && length(token_ids) >= 4 && !is_whitespace_token(penult_id)
             for h in 1:(length(token_ids)-1)
                 if token_ids[h] == penult_id
                     rep_next = token_ids[h+1]
-                    if rep_next <= V
+                    if rep_next > 0 && rep_next <= length(logits) && !is_whitespace_token(rep_next)
                         logits[rep_next] = -Inf
                     end
                 end
             end
         end
 
-        # 3. Strict 3-gram blocking
-        if ante_id > 0 && length(token_ids) >= 6
+        # 3. Strict 3-gram blocking (exempt whitespace and code indentation)
+        if ante_id > 0 && length(token_ids) >= 6 && !is_whitespace_token(ante_id)
             for h in 1:(length(token_ids)-2)
                 if token_ids[h] == ante_id && token_ids[h+1] == penult_id
                     rep_next = token_ids[h+2]
-                    if rep_next <= V
+                    if rep_next > 0 && rep_next <= length(logits) && !is_whitespace_token(rep_next)
                         logits[rep_next] = -Inf
                     end
                 end
@@ -214,9 +249,63 @@ function generate_text(
         # 4. Multi-scale exponential recency decay and frequency penalty (O(tokens_count))
         total_toks = length(token_ids)
         for (idx, prev_id) in enumerate(token_ids)
-            if 1 <= prev_id <= V && isfinite(logits[prev_id])
+            if 1 <= prev_id <= V && isfinite(logits[prev_id]) && !is_whitespace_token(prev_id)
                 dist = total_toks - idx + 1
                 logits[prev_id] -= 1.5 * (0.85 ^ (dist - 1)) + 0.5
+            end
+        end
+
+        # Active vocabulary filtering (e.g. trained domain corpus)
+        if active_vocab !== nothing && !isempty(active_vocab)
+            @inbounds for k in 1:V
+                if !(k in active_vocab)
+                    logits[k] = -Inf
+                end
+            end
+        end
+
+        # Parenthesis / bracket balance enforcement: never emit closing brackets if none were opened
+        open_parens = count(c -> c in "([{", prompt) + count(tid -> any(c -> c in "([{", tokenizer.inv_vocab[tid]), token_ids)
+        close_parens = count(c -> c in ")]}", prompt) + count(tid -> any(c -> c in ")]}", tokenizer.inv_vocab[tid]), token_ids)
+        if close_parens >= open_parens
+            for bracket in [")", "]", "}", " )", " ]", " }", "Ġ)", "Ġ]", "Ġ}"]
+                if haskey(tokenizer.vocab, bracket)
+                    logits[tokenizer.vocab[bracket]] = -Inf
+                end
+            end
+        end
+
+        # Word boundary, whitespace, and punctuation coherence enforcement:
+        if last_id > 0
+            last_tok_str = tokenizer.inv_vocab[last_id]
+            is_punct_char(c::Char) = c in ['.', ',', '!', '?', ':', ';', ')', ']', '}']
+            last_is_word = !isempty(last_tok_str) && (isletter(last_tok_str[end]) || isdigit(last_tok_str[end]))
+            last_is_closing = !isempty(last_tok_str) && is_punct_char(last_tok_str[end])
+
+            # 1. Whitespace enforcement: after words or closing punctuation, any subsequent word/number must start with whitespace marker ('Ġ', ' ', 'Ċ', '\n')
+            if last_is_word || last_is_closing
+                @inbounds for k in 1:V
+                    if isfinite(logits[k])
+                        cand = tokenizer.inv_vocab[k]
+                        if !isempty(cand) && (isletter(cand[1]) || isdigit(cand[1])) &&
+                           !startswith(cand, "Ġ") && !startswith(cand, " ") &&
+                           !startswith(cand, "Ċ") && !startswith(cand, "\n")
+                            logits[k] = -Inf
+                        end
+                    end
+                end
+            end
+
+            # 2. Punctuation anti-repetition: if last token ended in punctuation, never emit immediate duplicate punctuation
+            if last_is_closing
+                @inbounds for k in 1:V
+                    if isfinite(logits[k])
+                        cand = tokenizer.inv_vocab[k]
+                        if !isempty(cand) && (cand in [".", ",", "!", "?", ":", ";", ")", "]", "}"] || cand == string(last_tok_str[end]))
+                            logits[k] = -Inf
+                        end
+                    end
+                end
             end
         end
 
@@ -334,14 +423,15 @@ function generate_image(
         u = Float64(r) / Float64(height)
         v = Float64(c) / Float64(width)
         
+        dim_limit = min(embed_dim, length(latent))
         pixel_val = 0.0
-        for d in 1:embed_dim
+        for d in 1:dim_limit
             freq = 1.0 + Float64(d % 8) * 0.5
-            ph = 2π * Float64(d) / Float64(embed_dim)
+            ph = 2π * Float64(d) / Float64(dim_limit)
             pixel_val += latent[d] * cos(2π * (freq * u + v) + ph)
         end
         # Normalize to [0.0, 1.0]
-        img[r, c] = clamp(0.5 + 0.5 * (pixel_val / sqrt(embed_dim)), 0.0, 1.0)
+        img[r, c] = clamp(0.5 + 0.5 * (pixel_val / sqrt(dim_limit)), 0.0, 1.0)
     end
 
     return img

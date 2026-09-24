@@ -130,23 +130,19 @@ public class SovwaveModel {
         double[] output = new double[n];
 
         for (int i = 0; i < n; i++) {
-            double beta    = layer.fractalScales[i];
-            double df      = layer.fractalDims[i];
-            double vSpd    = layer.waveSpeeds[i];
-            double fracEnv = df / 1.5;
-            double nodeSum = 0.0;
-
-            for (int j = 0; j < d; j++) {
-                double inVal = j < ilen ? input[j] : 0.5;
-                double amp   = layer.amplitudes[i][j];
-                double ph    = layer.phases[i][j];
-                double freq  = layer.frequencies[i][j];
-
-                double xEff  = (vSpd == -1.0) ? inVal : inVal / Math.max(vSpd, 1e-12);
-                double angle = layer.omega * 0.001 * freq * xEff + ph - t;
-                nodeSum     += amp * Math.sin(angle);
+            double Ei = 0.0;
+            int limit = Math.min(ilen, d);
+            for (int j = 0; j < limit; j++) {
+                Ei += layer.amplitudes[i][j] * Math.cos(layer.phases[i][j]) * input[j];
             }
-            output[i] = (nodeSum / Math.sqrt(d)) * beta * fracEnv;
+            output[i] = Math.sin(Ei);
+        }
+
+        double sqSum = 0.0;
+        for (int i = 0; i < n; i++) sqSum += output[i] * output[i];
+        double nrm = Math.sqrt(sqSum);
+        if (nrm > 1e-6) {
+            for (int i = 0; i < n; i++) output[i] /= nrm;
         }
         return output;
     }
@@ -155,15 +151,7 @@ public class SovwaveModel {
     public double[] forward(double[] input, double t) {
         double[] current = input.clone();
         for (WaveLayerParams layer : layers) {
-            double[] accum = new double[layer.nodes];
-            for (int frame = 0; frame < tFrames; frame++) {
-                double tOff = t + 2 * Math.PI * frame / (omega + 1e-12);
-                double[] out = waveForward(layer, current, tOff);
-                for (int k = 0; k < layer.nodes; k++) accum[k] += out[k];
-            }
-            double scale = 1.0 / Math.sqrt(tFrames);
-            for (int k = 0; k < accum.length; k++) accum[k] *= scale;
-            current = accum;
+            current = waveForward(layer, current, t);
         }
         return current;
     }
@@ -217,8 +205,14 @@ public class SovwaveModel {
                         }
                     }
                     if (count > 0) {
-                        lp.amplitudes[r][c]  = (rAcc / count / 255.0) * 2.0;
-                        lp.phases[r][c]      = (gAcc / count / 255.0) * TWO_PI;
+                        double a = (rAcc / count / 255.0) * 2.0;
+                        double p = (gAcc / count / 255.0) * TWO_PI;
+                        if (a < 0.0) {
+                            a = -a;
+                            p = (p + Math.PI) % TWO_PI;
+                        }
+                        lp.amplitudes[r][c]  = a;
+                        lp.phases[r][c]      = p;
                         lp.frequencies[r][c] = Math.max(0.1, (bAcc / count / 255.0) * 4.0);
                     } else {
                         lp.amplitudes[r][c]  = 0.5;

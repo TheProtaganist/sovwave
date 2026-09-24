@@ -382,14 +382,15 @@
         🌊 <span>Sovwave.jl</span>
       </a>
       <ul class="nav-links">
+        <li><a href="documentation/index.html">Docs</a></li>
+        <li><a href="tokenizer/index.html">Tokenizer Demo</a></li>
         <li><a href="#quickstart">Install</a></li>
         <li><a href="#gui">Visual GUI</a></li>
         <li><a href="#training-guide">Training Guide</a></li>
-        <li><a href="#tokenizer">Wave Tokenizer</a></li>
         <li><a href="#competitors">Competitors</a></li>
         <li><a href="#architectures">5 Architectures</a></li>
         <li><a href="#jev">Jev Engine</a></li>
-        <li><a href="#tournaments">7x144 Tournaments</a></li>
+        <li><a href="#tournaments">Tournaments</a></li>
         <li><a href="#introspection">Introspection</a></li>
         <li><a href="https://github.com/TheProtaganist/sovwave" target="_blank">GitHub</a></li>
       </ul>
@@ -400,7 +401,7 @@
     <div class="container">
       <!-- Hero -->
       <section class="hero">
-        <div class="badge-pill">v0.2.1 • Official Julia Wave Intelligence Library</div>
+        <div class="badge-pill">v0.4.0 • Official Julia Wave Intelligence Library</div>
         <h1>Harmonic Wave Intelligence<br><span>Without Matrix Multiplications</span></h1>
         <p>
           Sovwave replaces discrete token arrays, binary neural matrices, and Markov chain approximations
@@ -636,26 +637,35 @@ predictions = predict(loaded_model, ds_text.inputs[1])</code></pre>
 
       <!-- Live Interactive Wave Tokenizer Widget -->
       <section id="tokenizer" style="margin-bottom: 4rem;">
-        <h2 class="section-title">🎵 Interactive Wave Tokenizer</h2>
+        <h2 class="section-title">🎵 Continuous & Phonetic Wave Tokenizer</h2>
         <p class="section-desc">
-          Type below to observe how text is tokenized into <strong>physical continuous waveforms</strong> (resonant carrier frequencies, circular phases, and sound wave packets):
+          Type below to observe how text is synthesized into <strong>physical acoustic sound waves</strong> with IPA formant frequencies \((F_1, F_2, F_3)\) and circular phase angles:
         </p>
         <p style="text-align: center; margin-bottom: 1.5rem;">
           <a href="tokenizer/index.html" style="display: inline-block; padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
-            Open Full Tokenizer Demo →
+            Open Full Tokenizer Demo & Audio Studio →
           </a>
         </p>
         <div class="widget-box">
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+            <button id="mode-phonetic-btn" class="btn btn-secondary" style="font-size:0.82rem; padding:0.4rem 0.8rem; background: rgba(0, 255, 255, 0.12); border-color: var(--accent-cyan); color: var(--accent-cyan);">
+              🗣️ Phonetic IPA Formants (963 Hz)
+            </button>
+            <button id="mode-harmonic-btn" class="btn btn-secondary" style="font-size:0.82rem; padding:0.4rem 0.8rem;">
+              🌊 Harmonic Subwords (432 Hz)
+            </button>
+          </div>
+
           <input type="text" id="token-input" class="interactive-input" value="harmonic wave computing" placeholder="Type text to synthesize acoustic waveforms...">
           
           <canvas id="wave-canvas"></canvas>
 
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; flex-wrap: wrap; gap: 0.5rem;">
             <button id="play-sound-btn" class="btn btn-primary" style="font-size:0.9rem; padding:0.5rem 1.25rem;">
               🔊 Play Synthesized Waveform
             </button>
             <span id="wave-stats" style="font-family:'JetBrains Mono', monospace; font-size:0.85rem; color:var(--text-secondary);">
-              13 WaveForms • Carrier: 432 Hz • Golden Ratio: 1.618
+              Acoustic IPA Formant Waveforms • Carrier: 963 Hz
             </span>
           </div>
 
@@ -811,15 +821,30 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
   </footer>
 
   <script>
-    // Live Interactive Wave Tokenizer JS
+    // Live Interactive Wave Tokenizer JS (Phonetic & Harmonic)
     const tokenInput = document.getElementById('token-input');
     const canvas = document.getElementById('wave-canvas');
     const ctx = canvas.getContext('2d');
     const playBtn = document.getElementById('play-sound-btn');
     const pillsContainer = document.getElementById('token-pills');
     const statsEl = document.getElementById('wave-stats');
+    const modePhoneticBtn = document.getElementById('mode-phonetic-btn');
+    const modeHarmonicBtn = document.getElementById('mode-harmonic-btn');
 
-    // Resize canvas
+    let currentMode = 'phonetic'; // 'phonetic' | 'harmonic'
+
+    // Formant frequency lookup table
+    const IPA_FORMANTS = {
+      'a': [730, 1090, 2440], 'e': [530, 1840, 2480], 'i': [270, 2290, 3010],
+      'o': [570, 840, 2410],  'u': [300, 870, 2240],  'ə': [500, 1500, 2500],
+      'p': [100, 1000, 2500], 'b': [100, 1000, 2500], 't': [200, 1700, 2600],
+      'd': [200, 1700, 2600], 'k': [300, 2000, 3000], 'g': [300, 2000, 3000],
+      's': [200, 4000, 8000], 'z': [200, 4000, 8000], 'f': [150, 2000, 4000],
+      'v': [150, 2000, 4000], 'm': [280, 1200, 2400], 'n': [280, 1700, 2600],
+      'l': [360, 1300, 2500], 'r': [420, 1300, 1600], 'w': [300, 870, 2240],
+      ' ': [120, 360, 720],   '.': [150, 450, 900],   ',': [250, 750, 1500]
+    };
+
     function resizeCanvas() {
       canvas.width = canvas.parentElement.clientWidth;
       canvas.height = 180;
@@ -832,94 +857,58 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
     let activeWaveforms = [];
     let audioCtx = null;
 
+    if (modePhoneticBtn && modeHarmonicBtn) {
+      modePhoneticBtn.addEventListener('click', () => {
+        currentMode = 'phonetic';
+        modePhoneticBtn.style.background = 'rgba(0, 255, 255, 0.12)';
+        modePhoneticBtn.style.borderColor = 'var(--accent-cyan)';
+        modePhoneticBtn.style.color = 'var(--accent-cyan)';
+        modeHarmonicBtn.style.background = 'var(--bg-surface-alt)';
+        modeHarmonicBtn.style.borderColor = 'var(--border-color)';
+        modeHarmonicBtn.style.color = 'var(--text-secondary)';
+        refresh();
+      });
+
+      modeHarmonicBtn.addEventListener('click', () => {
+        currentMode = 'harmonic';
+        modeHarmonicBtn.style.background = 'rgba(0, 255, 255, 0.12)';
+        modeHarmonicBtn.style.borderColor = 'var(--accent-cyan)';
+        modeHarmonicBtn.style.color = 'var(--accent-cyan)';
+        modePhoneticBtn.style.background = 'var(--bg-surface-alt)';
+        modePhoneticBtn.style.borderColor = 'var(--border-color)';
+        modePhoneticBtn.style.color = 'var(--text-secondary)';
+        refresh();
+      });
+    }
+
     function computeWaveforms(text) {
       const chars = Array.from(text);
-      const carrier = 432.0;
+      const carrier = currentMode === 'phonetic' ? 963.0 : 432.0;
       const phi = 1.618033988749895;
-      
-      // Build bigram frequency table
-      const bigramFreq = new Map();
-      for (let i = 0; i < chars.length - 1; i++) {
-        const bg = chars[i] + chars[i + 1];
-        bigramFreq.set(bg, (bigramFreq.get(bg) || 0) + 1);
-      }
-      
-      // Common subwords vocabulary (2-3 char subwords only)
-      const vocab = new Set([
-        "th", "he", "in", "er", "an", "re", "on", "at", "en", "nd", "ti", "es", "or", "te", "of",
-        "ed", "is", "it", "al", "ar", "st", "to", "nt", "ng", "se", "ha", "as", "ou", "io", "le",
-        "ve", "wa", "co", "mp", "ut", "ma", "rm", "ni", "ic", "pu", "tin", "mo", "de", "ri", "ro",
-        "la", "mi", "si", "po", "ta", "so", "me", "hi", "ne", "ea", "ra", "ce", "li", "ch", "ll",
-        "the", "and", "for", "are", "but", "not", "you", "all", "any", "can", "her", "was", "one",
-        "our", "out", "day", "get", "has", "him", "his", "how", "man", "new", "now", "old", "see",
-        "two", "way", "who", "boy", "did", "its", "let", "put", "say", "she", "too", "use"
-      ]);
-      
-      // Tokenize with FrequencyBPE (ONLY check lengths 3, 2 for vocab, NOT 8, 6, 4)
-      const tokens = [];
-      let idx = 0;
-      
-      while (idx < chars.length) {
-        let matched = false;
-        
-        // Try 3-char common words first (the, and, for, etc.), then 2-char subwords
-        for (const len of [3, 2]) {
-          if (idx + len <= chars.length) {
-            const sub = chars.slice(idx, idx + len).join('');
-            const inVocab = vocab.has(sub);
-            const isFreqBigram = (len === 2 && (bigramFreq.get(sub) || 0) >= 2);
-            
-            if (inVocab || isFreqBigram) {
-              tokens.push(sub);
-              idx += len;
-              matched = true;
-              break;
-            }
-          }
-        }
-        
-        if (!matched) {
-          tokens.push(chars[idx]);
-          idx++;
-        }
-      }
-      
-      // Generate waveforms
+
       const res = [];
-      tokens.forEach((token) => {
-        // Compute composite frequency for multi-char tokens
-        let freq, phase;
-        if (token.length === 1) {
-          const u = token.codePointAt(0);
-          const inv_phi = 1.0 / phi;
-          const weyl = (u * inv_phi) % 1.0;
-          const octave_step = (u % 12) / 12.0;
-          freq = carrier * Math.pow(phi, octave_step) * (1.0 + weyl * 0.5 + ((Math.floor(u / 12) % 1000) * 0.0002));
-          phase = (2 * Math.PI * u * inv_phi) % (2 * Math.PI);
-        } else {
-          // Weighted average for multi-char
-          let totalF = 0, totalP = 0, weightSum = 0;
-          for (let i = 0; i < token.length; i++) {
-            const u = token.codePointAt(i);
-            const w = Math.pow(phi, -i);
-            const inv_phi = 1.0 / phi;
-            const weyl = (u * inv_phi) % 1.0;
-            const octave_step = (u % 12) / 12.0;
-            const f = carrier * Math.pow(phi, octave_step) * (1.0 + weyl * 0.5 + ((Math.floor(u / 12) % 1000) * 0.0002));
-            const p = (2 * Math.PI * u * inv_phi) % (2 * Math.PI);
-            totalF += w * f;
-            totalP += w * p;
-            weightSum += w;
-          }
-          freq = totalF / weightSum;
-          phase = totalP % (2 * Math.PI);
+      chars.forEach((ch) => {
+        const lower = ch.toLowerCase();
+        let formants = IPA_FORMANTS[lower];
+        if (!formants) {
+          const code = ch.codePointAt(0);
+          formants = [200 + (code % 600), 800 + ((code * 7) % 1500), 2000 + ((code * 13) % 1500)];
         }
-        
+
+        const u = ch.codePointAt(0);
+        const inv_phi = 1.0 / phi;
+        const weyl = (u * inv_phi) % 1.0;
+        const octave_step = (u % 12) / 12.0;
+        const f = carrier * Math.pow(phi, octave_step) * (1.0 + weyl * 0.5);
+        const p = (2 * Math.PI * u * inv_phi) % (2 * Math.PI);
+
         res.push({
-          token: token,
-          freq: Math.round(freq * 10) / 10,
-          phase: Math.round(phase * 100) / 100,
-          isMultiChar: token.length > 1
+          token: ch === ' ' ? '␣' : ch,
+          rawChar: ch,
+          freq: Math.round(f * 10) / 10,
+          phase: Math.round(p * 100) / 100,
+          formants: formants,
+          carrier: carrier
         });
       });
       return res;
@@ -930,14 +919,27 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
       waveforms.forEach(wf => {
         const div = document.createElement('div');
         div.className = 'token-pill';
-        if (wf.isMultiChar) {
-          div.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
-          div.style.border = '2px solid rgba(255,255,255,0.3)';
+        div.style.cursor = 'pointer';
+
+        if (currentMode === 'phonetic') {
+          const [f1, f2, f3] = wf.formants;
+          div.innerHTML = `<span>"${wf.token}"</span> <span class="freq" style="color:var(--accent-cyan);">F₁:${f1}</span> <span class="phase" style="color:var(--accent-magenta);">F₂:${f2}</span>`;
+        } else {
+          div.innerHTML = `<span>"${wf.token}"</span> <span class="freq">${wf.freq} Hz</span> <span class="phase">φ=${wf.phase}</span>`;
         }
-        div.innerHTML = `<span>"${wf.token}"</span> <span class="freq">${wf.freq} Hz</span> <span class="phase">φ=${wf.phase}</span>`;
+
+        div.addEventListener('click', () => {
+          playTokenSound(wf);
+          div.style.background = 'rgba(0, 255, 255, 0.3)';
+          setTimeout(() => div.style.background = '', 200);
+        });
+
         pillsContainer.appendChild(div);
       });
-      statsEl.textContent = `${waveforms.length} WaveForms • Carrier: 432 Hz • Golden Ratio: 1.618`;
+
+      statsEl.textContent = currentMode === 'phonetic'
+        ? `${waveforms.length} Phonetic Formants • Carrier: 963 Hz • Speech Formants F₁/F₂/F₃`
+        : `${waveforms.length} Harmonic Waves • Carrier: 432 Hz • Golden Ratio: 1.618`;
     }
 
     function drawWave() {
@@ -948,7 +950,6 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
       const h = canvas.height;
       const midY = h / 2;
 
-      // Draw grid lines
       ctx.strokeStyle = '#101622';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -958,7 +959,6 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
 
       if (activeWaveforms.length === 0) return;
 
-      // Draw composite wave
       ctx.lineWidth = 2.5;
       const gradient = ctx.createLinearGradient(0, 0, w, 0);
       gradient.addColorStop(0, '#ff00ff');
@@ -971,9 +971,9 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
         const normX = x / w;
         let yAcc = 0;
 
-        activeWaveforms.forEach((wf, i) => {
-          const k = (wf.freq / 432.0) * 6;
-          yAcc += Math.cos(2 * Math.PI * k * normX + wf.phase + time * 3) / Math.sqrt(activeWaveforms.length);
+        activeWaveforms.forEach((wf) => {
+          const k = currentMode === 'phonetic' ? (wf.formants[0] / 300.0) * 4 : (wf.freq / 432.0) * 6;
+          yAcc += Math.cos(2 * Math.PI * k * normX + wf.phase + time * 3) / Math.sqrt(Math.max(1, activeWaveforms.length));
         });
 
         const y = midY + yAcc * (h * 0.35);
@@ -995,41 +995,70 @@ file_info = inspect_model("trained_model.mkv")</code></pre>
     tokenInput.addEventListener('input', refresh);
     refresh();
 
-    // Web Audio Synthesizer
-    playBtn.addEventListener('click', () => {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
+    function playTokenSound(wf) {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
 
       const now = audioCtx.currentTime;
-      let startOffset = now;
+      const master = audioCtx.createGain();
+      master.connect(audioCtx.destination);
+      master.gain.setValueAtTime(0.001, now);
+      master.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+      master.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
-      activeWaveforms.forEach((wf, i) => {
-        if (wf.token.trim().length === 0) return;
+      if (currentMode === 'phonetic') {
+        const formants = wf.formants;
+        formants.forEach((f, idx) => {
+          const osc = audioCtx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, now);
+          osc.connect(master);
+          osc.start(now);
+          osc.stop(now + 0.16);
+        });
+      } else {
         const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-
-        // Fundamental frequency scaled down to audible harmonic range
-        const playFreq = Math.min(1800, Math.max(180, wf.freq * 0.75));
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(playFreq, startOffset);
+        osc.frequency.setValueAtTime(wf.freq, now);
+        osc.connect(master);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      }
+    }
 
-        // Envelope
-        const dur = 0.18;
-        gain.gain.setValueAtTime(0.001, startOffset);
-        gain.gain.exponentialRampToValueAtTime(0.2, startOffset + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, startOffset + dur);
+    // Play All Synthesizer
+    playBtn.addEventListener('click', () => {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
 
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
+      let t = audioCtx.currentTime;
+      activeWaveforms.forEach((wf) => {
+        if (wf.rawChar.trim().length === 0) {
+          t += 0.06;
+          return;
+        }
+        const master = audioCtx.createGain();
+        master.connect(audioCtx.destination);
+        master.gain.setValueAtTime(0.001, t);
+        master.gain.exponentialRampToValueAtTime(0.16, t + 0.015);
+        master.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
 
-        osc.start(startOffset);
-        osc.stop(startOffset + dur);
-
-        startOffset += dur * 0.75; // Phase overlap
+        if (currentMode === 'phonetic') {
+          wf.formants.forEach(f => {
+            const osc = audioCtx.createOscillator();
+            osc.frequency.setValueAtTime(f, t);
+            osc.connect(master);
+            osc.start(t);
+            osc.stop(t + 0.13);
+          });
+        } else {
+          const osc = audioCtx.createOscillator();
+          osc.frequency.setValueAtTime(wf.freq, t);
+          osc.connect(master);
+          osc.start(t);
+          osc.stop(t + 0.13);
+        }
+        t += 0.10;
       });
     });
   </script>

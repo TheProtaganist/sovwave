@@ -122,34 +122,30 @@ namespace Sovwave
 
         // ── Forward pass ──────────────────────────────────────────────────────
 
-        private static double[] WaveForward(WaveLayerParams layer, double[] input, double t)
+        private static double[] WaveForward(WaveLayerParams layer, double[] input, double t = 0.0)
         {
-            int n    = layer.Nodes;
-            int d    = layer.EmbedDim;
+            int n = layer.Nodes;
+            int d = layer.EmbedDim;
             int ilen = input.Length;
             var output = new double[n];
 
             for (int i = 0; i < n; i++)
             {
-                double beta    = layer.FractalScales[i];
-                double df      = layer.FractalDims[i];
-                double vSpd    = layer.WaveSpeeds[i];
-                double fracEnv = df / 1.5;
-                double nodeSum = 0.0;
-
-                for (int j = 0; j < d; j++)
+                double Ei = 0.0;
+                int limit = Math.Min(ilen, d);
+                for (int j = 0; j < limit; j++)
                 {
-                    double inVal = j < ilen ? input[j] : 0.5;
-                    double amp   = layer.Amplitudes[i][j];
-                    double ph    = layer.Phases[i][j];
-                    double freq  = layer.Frequencies[i][j];
-
-                    // Speed-aware phase: -1.0 = unlimited
-                    double xEff  = vSpd == -1.0 ? inVal : inVal / Math.Max(vSpd, 1e-12);
-                    double angle = layer.Omega * 0.001 * freq * xEff + ph - t;
-                    nodeSum     += amp * Math.Sin(angle);
+                    Ei += layer.Amplitudes[i][j] * Math.Cos(layer.Phases[i][j]) * input[j];
                 }
-                output[i] = (nodeSum / Math.Sqrt(d)) * beta * fracEnv;
+                output[i] = Math.Sin(Ei);
+            }
+
+            double sqSum = 0.0;
+            for (int i = 0; i < n; i++) sqSum += output[i] * output[i];
+            double nrm = Math.Sqrt(sqSum);
+            if (nrm > 1e-6)
+            {
+                for (int i = 0; i < n; i++) output[i] /= nrm;
             }
             return output;
         }
@@ -160,16 +156,7 @@ namespace Sovwave
             double[] current = (double[])input.Clone();
             foreach (var layer in _layers)
             {
-                var accum = new double[layer.Nodes];
-                for (int frame = 0; frame < _tFrames; frame++)
-                {
-                    double tOff = t + 2.0 * Math.PI * frame / (_omega + 1e-12);
-                    var    @out = WaveForward(layer, current, tOff);
-                    for (int k = 0; k < layer.Nodes; k++) accum[k] += @out[k];
-                }
-                double scale = 1.0 / Math.Sqrt(_tFrames);
-                for (int k = 0; k < accum.Length; k++) accum[k] *= scale;
-                current = accum;
+                current = WaveForward(layer, current, t);
             }
             return current;
         }

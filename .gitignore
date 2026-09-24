@@ -21,5 +21,12 @@ desktop.ini
 # === Backups: never commit tarballs (backup.sh rotation) ===
 Backups/
 
-# === Logs keep-dirs: dirs ship via .gitkeep, generated content is evidence — keep committed.
-#     If logs ever bloat, revisit via backup.sh/--exclude strategy. ===checkpoints_test/
+# === Logs ===
+*.log
+
+# === Python ===
+__pycache__/
+*.pyc
+
+# === Checkpoints scratch dirs ===
+/checkpoints_*/

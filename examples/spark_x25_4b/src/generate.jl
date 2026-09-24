@@ -33,7 +33,8 @@ function generate_text_spark(
         prompt;
         max_new_tokens = max_tokens,
         temperature = temperature,
-        top_k = top_k
+        top_k = top_k,
+        active_vocab = isempty(model.active_vocab) ? nothing : model.active_vocab
     )
 end
 

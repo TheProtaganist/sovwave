@@ -55,6 +55,11 @@ struct WaveForm
     energy::Float64
 end
 
+"""
+    Base.show(io::IO, wf::WaveForm)
+
+Pretty-prints human-readable summary of a continuous acoustic `WaveForm` struct.
+"""
 function Base.show(io::IO, wf::WaveForm)
     @printf(io, "WaveForm(\"%s\", f=%.2f Hz, φ=%.3f rad, energy=%.4f, %d samples)",
             wf.token, wf.frequency, wf.phase, wf.energy, length(wf.samples))
@@ -147,18 +152,20 @@ struct WaveTokenizer
     beta_s::Float64
     lock::ReentrantLock
 
+    # Primary constructor assigning harmonic resonant frequencies and Weyl phases across vocabulary
     function WaveTokenizer(
         vocab::Dict{String, Int},
         inv_vocab::Vector{String};
-        carrier_frequency::Float64 = 432.0,
+        carrier_frequency::Float64 = 963.0,
         beta_s::Float64 = 1.618033988749895,
-        frequencies::Union{Nothing, Vector{Float64}} = nothing
+        frequencies::Union{Nothing, Vector{Float64}} = nothing,
+        use_phonetic::Bool = false
     )
         V = length(inv_vocab)
         freqs = frequencies !== nothing ? copy(frequencies) : Vector{Float64}(undef, V)
         phs = Vector{Float64}(undef, V)
 
-        # Generate harmonic frequency and circular phase per token using Unicode-aware harmonic mapping
+        # Generate harmonic frequency and circular phase per token
         for k in 1:V
             tok_str = inv_vocab[k]
             if frequencies === nothing
@@ -206,14 +213,16 @@ end
 """
     default_tokenizer(;
         model::Union{Symbol, String} = :gpt2,
-        carrier_frequency::Float64 = 432.0,
+        carrier_frequency::Float64 = 963.0,
         beta_s::Float64 = 1.618033988749895,
-        token::Union{Nothing, String} = nothing
+        token::Union{Nothing, String} = nothing,
+        use_phonetic::Bool = false
     )::WaveTokenizer
 
 Returns a rich, converted pretrained pipeline `WaveTokenizer`.
-By default, uses the converted GPT-2 / Qwen pipeline with thousands of full English words,
-scientific terms, AI concepts, symbols, emojis, and world scripts.
+
+NOTE: Phonetic mode (use_phonetic=true) should use phonetic_tokenizer() from PhoneticWaveTokenizer module instead.
+This function uses standard frequency-based tokenization.
 
 Supported `model` options:
 - `:gpt2` (default): converted GPT-2 pipeline (50,257 tokens, works 100% offline via bundled package assets)
@@ -227,22 +236,23 @@ function default_tokenizer(;
     model::Union{Symbol, String} = :gpt2,
     carrier_frequency::Float64 = 432.0,
     beta_s::Float64 = 1.618033988749895,
-    token::Union{Nothing, String} = nothing
-)::WaveTokenizer
+    token::Union{Nothing, String} = nothing,
+    use_phonetic::Bool = false
+)::Union{WaveTokenizer, PhoneticTokenizer}
     m_str = string(model)
     # 1. Local file path check
     if isfile(m_str)
-        return load_tokenizer_file(m_str; carrier_frequency=carrier_frequency, beta_s=beta_s)
+        return load_tokenizer_file(m_str; carrier_frequency=carrier_frequency, beta_s=beta_s, use_phonetic=use_phonetic)
     end
     # 2. Bundled package asset check for GPT-2
     if m_str == "gpt2"
         asset_file = joinpath(@__DIR__, "assets", "gpt2_vocab.json")
         if isfile(asset_file)
-            return load_tokenizer_file(asset_file; carrier_frequency=carrier_frequency, beta_s=beta_s)
+            return load_tokenizer_file(asset_file; carrier_frequency=carrier_frequency, beta_s=beta_s, use_phonetic=use_phonetic)
         end
     end
     # 3. Pretrained models or Hugging Face repo strings
-    if m_str in ("qwen", "qwen2", "mistral", "llama", "llama3", "deepseek", "deepseek_v4", "deepseek-v4", "deepseek4", "deepseek_v3", "deepseek-v3") || startswith(m_str, "deepseek") || occursin("/", m_str)
+    if m_str in ("qwen", "qwen2", "mistral", "llama", "llama3", "deepseek", "deepseek_v4", "deepseek-v4", "deepseek4", "deepseek_v3", "deepseek-v3", "spark", "spark_x", "spark2_5", "spark-x", "spark-x2.5") || startswith(m_str, "deepseek") || occursin("/", m_str)
         try
             return load_huggingface_tokenizer(m_str; token=token, carrier_frequency=carrier_frequency, beta_s=beta_s)
         catch e
@@ -251,7 +261,7 @@ function default_tokenizer(;
     end
     # 4. Built-in curated converted vocabulary pipeline (100% offline, self-contained fallback)
     vocab = build_curated_pretrained_vocab()
-    return convert_tokenizer(vocab; carrier_frequency=carrier_frequency, beta_s=beta_s)
+    return convert_tokenizer(vocab; carrier_frequency=carrier_frequency, beta_s=beta_s, use_phonetic=use_phonetic)
 end
 
 """
@@ -360,12 +370,15 @@ function tokenize_ids(tok::WaveTokenizer, text::String)::Vector{Int}
     has_gpt2_space = haskey(tok.vocab, "Ġthe") || haskey(tok.vocab, "Ġis") || haskey(tok.vocab, "Ġa")
     has_sp_space   = haskey(tok.vocab, " the") || haskey(tok.vocab, " is") || haskey(tok.vocab, " a")
 
-    encoded_text = if has_gpt2_space
-        replace(text, " " => "Ġ")
+    has_gpt2_newline = haskey(tok.vocab, "Ċ")
+    encoded_text = text
+    if has_gpt2_space
+        encoded_text = replace(encoded_text, " " => "Ġ")
     elseif has_sp_space
-        replace(text, " " => " ")
-    else
-        text
+        encoded_text = replace(encoded_text, " " => " ")
+    end
+    if has_gpt2_newline
+        encoded_text = replace(encoded_text, "\n" => "Ċ", "\t" => "ĉ")
     end
 
     chars = collect(encoded_text)
@@ -583,6 +596,8 @@ function decode(tok::WaveTokenizer, ids::Vector{Int}; clean_spaces::Bool = true)
             if clean_spaces
                 s = replace(s, "Ġ" => " ")
                 s = replace(s, " " => " ")
+                s = replace(s, "Ċ" => "\n")
+                s = replace(s, "ĉ" => "\t")
             end
             print(buf, s)
         end
@@ -674,8 +689,9 @@ end
 """
     to_wave_packet(tok::WaveTokenizer, token_id::Int, embed_dim::Int; t::Float64 = 0.0)::Vector{Float64}
 
-Synthesizes a continuous harmonic wave packet embedding vector for a given token ID:
-E_d = cos(2π f_k · d/D + φ_k + t) · exp(-d / (β_s · D))
+Synthesizes a continuous multi-harmonic cymatic wave packet embedding vector for a given token ID:
+E_d = (1/√H) ∑_{h=1}^H (1/√h) cos(2π · (f_k / ω_0) · Φ^{(h-1)/3} · x + φ_k · h + θ_{k, h} + t)
+Spans all dimensions with incommensurate irrational frequency dispersion, preventing aliasing.
 """
 function to_wave_packet(
     tok::WaveTokenizer,
@@ -686,16 +702,24 @@ function to_wave_packet(
     valid_id = clamp(token_id, 1, length(tok.inv_vocab))
     f_k = tok.frequencies[valid_id]
     phi_k = tok.phases[valid_id]
+    token_str = tok.inv_vocab[valid_id]
     beta = tok.beta_s
+    h_seed = hash(token_str)
 
-    emb = Vector{Float64}(undef, embed_dim)
+    emb = zeros(Float64, embed_dim)
     inv_dim = 1.0 / Float64(embed_dim)
+    H = 8
 
-    @inbounds for d in 1:embed_dim
-        x = Float64(d - 1) * inv_dim
-        carrier = cos(2π * (f_k / tok.carrier_frequency) * x + phi_k + t)
-        envelope = exp(-x / beta)
-        emb[d] = carrier * envelope
+    for h in 1:H
+        h_scale = beta ^ (Float64(h - 1) / 3.0)
+        mode_freq = (f_k / tok.carrier_frequency) * h_scale
+        h_ph = phi_k * Float64(h) + Float64((h_seed >> (h * 4)) & 0xff) * (2π / 256.0) + t
+        w_h = 1.0 / sqrt(Float64(h))
+
+        @inbounds @simd for d in 1:embed_dim
+            x = Float64(d - 1) * inv_dim
+            emb[d] += w_h * cos(2π * mode_freq * x + h_ph)
+        end
     end
 
     nrm = norm(emb)
@@ -716,21 +740,22 @@ function to_wave_packet(wf::WaveForm, embed_dim::Int; t::Float64 = 0.0)::Vector{
     if n_s == embed_dim
         return copy(wf.samples)
     end
-    # Resample / generate wave packet at embed_dim
-    emb = Vector{Float64}(undef, embed_dim)
+    emb = zeros(Float64, embed_dim)
     inv_dim = 1.0 / Float64(embed_dim)
     beta = 1.618033988749895
-    for d in 1:embed_dim
-        x = Float64(d - 1) * inv_dim
-        carrier = cos(2π * (wf.frequency / 432.0) * x + wf.phase + t)
-        envelope = exp(-x / beta)
-        emb[d] = carrier * envelope
+    H = 8
+    for h in 1:H
+        h_scale = beta ^ (Float64(h - 1) / 3.0)
+        mode_freq = (wf.frequency / 432.0) * h_scale
+        h_ph = wf.phase * Float64(h) + t
+        w_h = 1.0 / sqrt(Float64(h))
+        @inbounds @simd for d in 1:embed_dim
+            x = Float64(d - 1) * inv_dim
+            emb[d] += w_h * cos(2π * mode_freq * x + h_ph)
+        end
     end
     nrm = norm(emb)
-    if nrm > 1e-6
-        emb ./= nrm
-    end
-    return emb
+    return nrm > 1e-6 ? emb ./ nrm : emb
 end
 
 """
@@ -805,3 +830,76 @@ function decode_sequence_embeddings(tok::WaveTokenizer, emb_matrix::Matrix{Float
     end
     return decode(tok, ids)
 end
+
+# ============================================================================
+# PhoneticTokenizer Interoperability Bindings
+# ============================================================================
+
+"""
+    tokenize_ids(tok::PhoneticTokenizer, text::String)::Vector{Int}
+
+Tokenizes text into integer token IDs using the PhoneticTokenizer.
+"""
+tokenize_ids(tok::PhoneticTokenizer, text::String)::Vector{Int} = PhoneticWaveTokenizer.tokenize_ids_simple(tok, text)
+
+"""
+    decode(tok::PhoneticTokenizer, ids::Vector{Int}; clean_spaces::Bool = true)::String
+
+Decodes integer token IDs back to text using the PhoneticTokenizer.
+"""
+decode(tok::PhoneticTokenizer, ids::Vector{Int}; clean_spaces::Bool = true)::String = PhoneticWaveTokenizer.decode_ids_to_text(tok, ids)
+
+"""
+    decode(tok::PhoneticTokenizer, wave_matrix::Matrix{Float64})::String
+
+Decodes text from a continuous phonetic wave matrix via cross-correlation resonance.
+"""
+decode(tok::PhoneticTokenizer, wave_matrix::Matrix{Float64})::String = PhoneticWaveTokenizer.decode_phonetic(tok, wave_matrix)
+
+"""
+    decode(tok::PhoneticTokenizer, freqs::AbstractVector{<:Real}; clean_spaces::Bool = true)::String
+
+Decodes text from physical frequencies using the PhoneticTokenizer.
+"""
+decode(tok::PhoneticTokenizer, freqs::AbstractVector{<:Real}; clean_spaces::Bool = true)::String = PhoneticWaveTokenizer.decode(tok, freqs; clean_spaces=clean_spaces)
+
+"""
+    to_wave_packet(tok::PhoneticTokenizer, token_id::Int, embed_dim::Int; t::Float64 = 0.0)::Vector{Float64}
+
+Extracts continuous phonetic wave packet embedding for a given token ID.
+"""
+to_wave_packet(tok::PhoneticTokenizer, token_id::Int, embed_dim::Int; t::Float64 = 0.0)::Vector{Float64} = PhoneticWaveTokenizer.to_wave_packet(tok, token_id, embed_dim; t=t)
+
+"""
+    to_wave_form(tok::PhoneticTokenizer, token_id::Int; n_samples::Int = 32, sample_rate::Float64 = 48000.0, t::Float64 = 0.0)::WaveForm
+
+Synthesizes a physical continuous `WaveForm` for a token ID using its phonetic acoustic pattern.
+"""
+function to_wave_form(
+    tok::PhoneticTokenizer,
+    token_id::Int;
+    n_samples::Int = 32,
+    sample_rate::Float64 = 48000.0,
+    t::Float64 = 0.0
+)::WaveForm
+    valid_id = clamp(token_id, 1, length(tok.inv_vocab))
+    tok_str = tok.inv_vocab[valid_id]
+    f = tok.frequencies[valid_id]
+    ph = tok.phases[valid_id]
+    pat = to_wave_packet(tok, valid_id, n_samples; t=t)
+    harmonics = [f * (1.618033988749895 ^ h) for h in 1:4]
+    duration = Float64(n_samples) / sample_rate
+    energy = sum(abs2, pat)
+    return WaveForm(tok_str, valid_id, f, ph, 1.0, harmonics, pat, duration, energy)
+end
+
+"""
+    tokenize(tok::PhoneticTokenizer, text::String)::Vector{WaveForm}
+
+Tokenizes natural text into a sequence of continuous acoustic `WaveForm`s.
+"""
+function tokenize(tok::PhoneticTokenizer, text::String)::Vector{WaveForm}
+    ids = tokenize_ids(tok, text)
+    return [to_wave_form(tok, id) for id in ids]
+end
+

@@ -63,6 +63,24 @@ function train_mnist_model(;
                 prototypes[d] ./= norm(prototypes[d])
             end
         end
+    end
+
+    # Continuous contrastive wave interference refinement
+    for ref_ep in 1:15
+        for i in 1:length(dataset)
+            target_d = argmax(dataset.targets[i])
+            sims = [dot(dataset.inputs[i], prototypes[d]) for d in 1:10]
+            pred_d = argmax(sims)
+            if pred_d != target_d
+                prototypes[target_d] .+= 0.05 .* dataset.inputs[i]
+                prototypes[pred_d] .-= 0.025 .* dataset.inputs[i]
+                prototypes[target_d] ./= max(1e-6, norm(prototypes[target_d]))
+                prototypes[pred_d] ./= max(1e-6, norm(prototypes[pred_d]))
+            end
+        end
+    end
+
+    for d in 1:10
         for c in 1:64
             val = prototypes[d][c]
             net.model.layers[1].amplitudes[d, c] = abs(val)

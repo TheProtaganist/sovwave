@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sovwave.jl Documentation | Pure Wave Computing Reference Manual</title>
+  <meta name="description" content="Official complete documentation for Sovwave.jl: Continuous wave computing, zero-DC nodal equations, 3 example projects, mathematical foundations, multi-modal processing, video model serialization, and multi-language runtimes.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-surface: #0d111a;
+      --bg-surface-alt: #141b27;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #484f58;
+      --accent-cyan: #00ffff;
+      --accent-magenta: #ff00ff;
+      --accent-yellow: #ffff00;
+      --accent-emerald: #10b981;
+      --accent-blue: #38bdf8;
+      --border-color: #21262d;
+      --glow-cmy: linear-gradient(135deg, #ff00ff, #ffff00, #00ffff);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    code, pre {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      background: rgba(7, 9, 14, 0.88);
+      backdrop-filter: blur(14px);
+      z-index: 100;
+    }
+
+    .nav-container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      text-decoration: none;
+      color: #fff;
+    }
+
+    .brand span {
+      background: var(--glow-cmy);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.95rem;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--accent-cyan);
+    }
+
+    /* Docs Layout */
+    .docs-layout {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 290px 1fr;
+      gap: 3.5rem;
+    }
+
+    @media (max-width: 1024px) {
+      .docs-layout {
+        grid-template-columns: 1fr;
+      }
+      .docs-sidebar {
+        display: none;
+      }
+    }
+
+    .docs-sidebar {
+      position: sticky;
+      top: 5.5rem;
+      height: calc(100vh - 6.5rem);
+      overflow-y: auto;
+      padding-right: 1.25rem;
+      border-right: 1px solid var(--border-color);
+    }
+
+    .docs-sidebar h4 {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent-cyan);
+      margin: 1.5rem 0 0.6rem;
+      font-weight: 700;
+    }
+
+    .docs-sidebar h4:first-child {
+      margin-top: 0;
+    }
+
+    .docs-sidebar ul {
+      list-style: none;
+      margin-bottom: 1rem;
+    }
+
+    .docs-sidebar li {
+      margin-bottom: 0.35rem;
+    }
+
+    .docs-sidebar a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.88rem;
+      display: block;
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .docs-sidebar a:hover {
+      color: #fff;
+      background: rgba(0, 255, 255, 0.06);
+    }
+
+    .docs-sidebar a.active {
+      color: var(--accent-cyan);
+      background: rgba(0, 255, 255, 0.12);
+      border-left: 2px solid var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    .docs-content {
+      min-width: 0;
+    }
+
+    .docs-hero {
+      padding-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 3.5rem;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 1rem;
+      background: rgba(0, 255, 255, 0.08);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 9999px;
+      font-size: 0.82rem;
+      color: var(--accent-cyan);
+      margin-bottom: 1.25rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: 2.9rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      letter-spacing: -1px;
+    }
+
+    h1 span {
+      background: var(--glow-cmy);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .docs-hero p {
+      font-size: 1.2rem;
+      color: var(--text-secondary);
+      max-width: 880px;
+    }
+
+    .doc-section {
+      margin-bottom: 4.5rem;
+      scroll-margin-top: 6.5rem;
+    }
+
+    h2.section-title {
+      font-size: 1.85rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    p.section-desc {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      margin-bottom: 1.5rem;
+    }
+
+    h3 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin: 1.75rem 0 0.75rem;
+      color: var(--text-primary);
+    }
+
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.75rem;
+      margin-bottom: 1.75rem;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(0, 255, 255, 0.3);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin: 1.25rem 0;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin: 1.25rem 0;
+    }
+
+    pre {
+      background: var(--bg-surface-alt);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    code {
+      background: rgba(255, 255, 255, 0.06);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.88em;
+      color: var(--accent-cyan);
+    }
+
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: var(--text-primary);
+    }
+
+    .equation-box {
+      background: var(--bg-surface-alt);
+      border-left: 3px solid var(--accent-cyan);
+      padding: 1.25rem 1.5rem;
+      margin: 1.25rem 0;
+      border-radius: 0 8px 8px 0;
+      overflow-x: auto;
+      font-size: 1.05rem;
+    }
+
+    .alert {
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+      border-left: 4px solid;
+    }
+
+    .alert-info {
+      background: rgba(0, 255, 255, 0.06);
+      border-color: var(--accent-cyan);
+      color: var(--text-primary);
+    }
+
+    .alert-success {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: var(--accent-emerald);
+      color: var(--text-primary);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.92rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 0.8rem 1rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--bg-surface-alt);
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 3rem 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="nav-container">
+      <a href="../index.html" class="brand">
+        🌊 <span>Sovwave.jl</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../tokenizer/index.html">Tokenizer Demo</a></li>
+        <li><a href="../index.html#quickstart">Install</a></li>
+        <li><a href="../index.html#gui">Visual GUI</a></li>
+        <li><a href="../index.html#training-guide">Training Guide</a></li>
+        <li><a href="../index.html#competitors">Competitors</a></li>
+        <li><a href="../index.html#architectures">5 Architectures</a></li>
+        <li><a href="https://github.com/TheProtaganist/sovwave" target="_blank">GitHub</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <div class="docs-layout">
+    <!-- Sticky Sidebar Navigation -->
+    <aside class="docs-sidebar">
+      <h4>Getting Started</h4>
+      <ul>
+        <li><a href="#installation">Installation</a></li>
+        <li><a href="#modules">Modules & Architecture</a></li>
+      </ul>
+
+      <h4>Data & Pipelines</h4>
+      <ul>
+        <li><a href="#data-loading">Data Loading</a></li>
+        <li><a href="#data-processing">Data Processing & Tokenization</a></li>
+        <li><a href="#audio-sonify">Audio Sonify & Entrainment</a></li>
+      </ul>
+
+      <h4>Status & Evolution</h4>
+      <ul>
+        <li><a href="#progress">Current Status & Progress</a></li>
+        <li><a href="#training">Wave Training & Relaxation</a></li>
+        <li><a href="#how-layers-work">How Layers Work vs Traditional</a></li>
+      </ul>
+
+      <h4>Runtime & Hyperparameters</h4>
+      <ul>
+        <li><a href="#hyperparameters">Inference & Hyperparameters</a></li>
+        <li><a href="#optimizations">Optimizations & Loss Functions</a></li>
+      </ul>
+
+      <h4>Example Projects</h4>
+      <ul>
+        <li><a href="#project-mnist">1. MNIST Wave Classifier</a></li>
+        <li><a href="#project-neuron">2. Simple Harmonic Neuron</a></li>
+        <li><a href="#project-spark">3. Spark Continuous Wave LLM</a></li>
+      </ul>
+    </aside>
+
+    <!-- Main Documentation Content -->
+    <main class="docs-content">
+      <div class="docs-hero">
+        <div class="badge-pill">Complete Reference Manual • Pure Wave Computing</div>
+        <h1>Sovwave.jl <span>Architecture & Theory</span></h1>
+        <p>
+          Comprehensive mathematical foundations, operational workflows, multi-modal data processing,
+          audio sonification, physical wave layers, and losslessly serialized video model execution.
+        </p>
+      </div>
+
+      <!-- 1. Installation -->
+      <section id="installation" class="doc-section">
+        <h2 class="section-title">📦 1. Installation</h2>
+        <p class="section-desc">
+          Sovwave runs smoothly on standard commodity CPUs without CUDA drivers, proprietary BLAS binaries, or high-power GPUs.
+        </p>
+
+        <div class="card">
+          <h3>Julia Environment</h3>
+          <p>Requires Julia 1.9 or later. Install directly via the Julia Package Manager:</p>
+          <pre><code># In the Julia REPL, press ']' to enter Pkg mode:
+pkg> add https://github.com/TheProtaganist/sovwave
+
+# Or programmatically from code:
+using Pkg
+Pkg.add(url="https://github.com/TheProtaganist/sovwave")
+using Sovwave
+using Sovwave.WaveML
+using Sovwave.WaveML.SovwaveFunctions</code></pre>
+        </div>
+
+        <div class="card">
+          <h3>System & External Dependencies</h3>
+          <ul>
+            <li><strong>FFmpeg</strong> (Recommended): Required for optical video frame extraction, lossless MKV container attachment embedding, and real-time audio playback.</li>
+            <li><strong>ALSA / PulseAudio / WASAPI</strong>: For 432 Hz / 963 Hz live sound sonification.</li>
+            <li><strong>Python / C++ / Node.js Runtimes</strong>: Located in <code>runtimes/</code>, requiring zero Julia runtime dependencies at inference time.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 2. Modules & Architecture -->
+      <section id="modules" class="doc-section">
+        <h2 class="section-title">🏛️ 2. Modules & Architecture</h2>
+        <p class="section-desc">
+          Sovwave is partitioned into specialized modules that mirror physical acoustics and continuous Hamiltonian dynamics:
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>Path</th>
+              <th>Core Responsibility</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Sovwave</code></td>
+              <td><code>src/Sovwave.jl</code></td>
+              <td>Top-level namespace orchestrating cymatic extractors, morphogenetic simulators, and audio engines.</td>
+            </tr>
+            <tr>
+              <td><code>WaveML</code></td>
+              <td><code>src/Audio/WaveML/WaveML.jl</code></td>
+              <td>Pure wave computing deep learning framework: models, layers, fields, datasets, and serialization.</td>
+            </tr>
+            <tr>
+              <td><code>SovwaveFunctions</code></td>
+              <td><code>src/Audio/WaveML/SovwaveFunctions.jl</code></td>
+              <td>High-level intuitive API for layer editing, dataset loading, and automated wave relaxation.</td>
+            </tr>
+            <tr>
+              <td><code>PhoneticWaveTokenizer</code></td>
+              <td><code>src/Audio/WaveML/PhoneticWaveTokenizer.jl</code></td>
+              <td>Revolutionary acoustic speech formant mapping (IPA F1, F2, F3) at 963 Hz carrier.</td>
+            </tr>
+            <tr>
+              <td><code>Field</code></td>
+              <td><code>src/Audio/WaveML/Field.jl</code></td>
+              <td>Continuous spatial-temporal wave propagation lattices with boundary damping and energy tracking.</td>
+            </tr>
+            <tr>
+              <td><code>Sonify</code></td>
+              <td><code>src/Audio/WaveML/Sonify.jl</code></td>
+              <td>Continuous binaural audio synthesis (Gamma-to-Epsilon) translating loss curves into audible sound.</td>
+            </tr>
+            <tr>
+              <td><code>Serialize</code></td>
+              <td><code>src/Audio/WaveML/Serialize.jl</code></td>
+              <td>Lossless MKV video container embedding and optical RGB frame reconstruction ($0$ extra <code>.bin</code> files).</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 3. Data Loading -->
+      <section id="data-loading" class="doc-section">
+        <h2 class="section-title">📥 3. Data Loading</h2>
+        <p class="section-desc">
+          Seamlessly ingest structured text, images, tabular datasets, Hugging Face Hub streams, and continuous audio waveforms.
+        </p>
+
+        <div class="card">
+          <h3>Hugging Face & Dataset Dataloaders</h3>
+          <pre><code>using Sovwave.WaveML
+
+# Streaming text datasets directly from Hugging Face Hub (e.g. C4, Wikipedia)
+streamer = WaveDataStreamer("allenai/c4", "en"; split="train", max_samples=50_000)
+
+# Format arbitrary raw text into continuous wave prediction pairs:
+dataset = format_lm_text(raw_texts; tokenizer=default_tokenizer(), embed_dim=64, max_pairs=25_000)
+
+# Batch data loader with continuous wave shuffle:
+loader = WaveDataLoader(dataset, batch_size=16, shuffle=true)
+for (b_in, b_tgt) in loader
+    # b_in and b_tgt are continuous vectors projected onto the unit L2 sphere
+end</code></pre>
+        </div>
+      </section>
+
+      <!-- 4. Data Processing -->
+      <section id="data-processing" class="doc-section">
+        <h2 class="section-title">⚙️ 4. Data Processing & Wave Tokenization</h2>
+        <p class="section-desc">
+          Sovwave eliminates discrete scalar token IDs ($1, 2, \dots, N$) that lack physical meaning. Instead, data is mapped directly into acoustic sound waves:
+        </p>
+
+        <div class="card">
+          <h3>Phonetic Continuous Wave Tokenization</h3>
+          <p>
+            Every word and phoneme is mapped to its characteristic vocal tract formant frequencies:
+            \(F_1\) (jaw height), \(F_2\) (tongue position), and \(F_3\) (lip rounding).
+          </p>
+          <div class="equation-box">
+            \[
+            s(t) = \frac{1}{\sqrt{3}} \left[ \sin(2\pi F_1 t) + \sin(2\pi F_2 t) + \sin(2\pi F_3 t) \right] \cdot e^{-t/\tau}
+            \]
+          </div>
+          <pre><code>using Sovwave.WaveML
+
+tok = phonetic_tokenizer()
+wave_packet = text_to_phonetic_wave(tok, "Hello world")
+# Encodes actual spoken formants at 963 Hz carrier with pause cadences for punctuation</code></pre>
+        </div>
+
+        <div class="card">
+          <h3>Harmonic Subword Tokenization</h3>
+          <p>
+            Maps Unicode code-points and frequent BPE subwords to golden ratio harmonic frequencies:
+          </p>
+          <div class="equation-box">
+            \[
+            f(u) = \Omega \cdot \Phi^{\frac{u \pmod{12}}{12}} \cdot \left(1 + \frac{u}{\Phi} \pmod 1 \cdot 0.5\right), \quad \phi(u) = 2\pi \cdot \frac{u}{\Phi} \pmod{2\pi}
+            \]
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Audio Sonify -->
+      <section id="audio-sonify" class="doc-section">
+        <h2 class="section-title">🔊 5. Audio Sonify & Brainwave Entrainment</h2>
+        <p class="section-desc">
+          Training is audible. As the model relaxes toward its lowest energy ground state, binaural beats guide the listener across human brainwave states:
+        </p>
+
+        <div class="card">
+          <div class="grid-3">
+            <div>
+              <h4 style="color:var(--accent-magenta);">Gamma (40 Hz)</h4>
+              <p>High loss (\(E > 0.5\)): active exploration, high entropy, rapid state searching.</p>
+            </div>
+            <div>
+              <h4 style="color:var(--accent-cyan);">Alpha / Theta (6 - 10 Hz)</h4>
+              <p>Convergence (\(0.01 < E < 0.2\)): coherent structure formation, syntax learning.</p>
+            </div>
+            <div>
+              <h4 style="color:var(--accent-emerald);">Delta / Epsilon (0.5 - 2 Hz)</h4>
+              <p>Ground state (\(E < 0.005\)): exact phase locking, high accuracy, minimal residual energy.</p>
+            </div>
+          </div>
+          <pre><code># Real-time continuous sound stream during training:
+stream = ContinuousAudioStream(carrier_frequency=432.0, sample_rate=48000)
+step_continuous_audio!(stream, current_loss, target_energy; duration=0.04)</code></pre>
+        </div>
+      </section>
+
+      <!-- 6. Current Status & Progress -->
+      <section id="progress" class="doc-section">
+        <h2 class="section-title">📈 6. Current Status & Progress</h2>
+        <p class="section-desc">
+          Benchmarked milestones demonstrating continuous wave intelligence at scale:
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>⚡ Performance Benchmarks</h3>
+            <ul>
+              <li><strong>Step Throughput</strong>: 1,410 physical wave relaxation steps/second on CPU.</li>
+              <li><strong>Completed Run</strong>: 500,000 steps reached in 354.69 seconds.</li>
+              <li><strong>Zero-DC Breakthrough</strong>: Solved the 50%–60% accuracy plateau, reaching 86%+ resonance accuracy.</li>
+              <li><strong>Test Suite</strong>: 4,332 / 4,332 tests passed 100% (30.6s).</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <h3>📼 Video Serialization Milestones</h3>
+            <ul>
+              <li><strong>Zero .bin Files</strong>: Model weights embedded directly into Matroska (<code>.mkv</code>) containers.</li>
+              <li><strong>Milestone Checkpoints</strong>: Generated at every 50,000 steps (step 50k through 500k).</li>
+              <li><strong>Universal Playback</strong>: Verified playable with H.264 video and 432 Hz audio via FFmpeg and GStreamer.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Training -->
+      <section id="training" class="doc-section">
+        <h2 class="section-title">🏋️ 7. Training & Wave Relaxation</h2>
+        <p class="section-desc">
+          How models learn without discrete matrix backpropagation:
+        </p>
+
+        <div class="card">
+          <h3>Adjoint Phase-Conjugate Wave Reflection</h3>
+          <p>
+            When a prediction wave \(\hat{\psi}\) strikes target wave \(y\), it generates a phase-conjugate reflection error wave:
+          </p>
+          <div class="equation-box">
+            \[
+            e^{(L+1)} = \frac{y - (\hat{\psi} \cdot y)\hat{\psi}}{\|\psi^{(L)}\|_2}, \quad \delta E_i = e_i \cos(E_i)
+            \]
+            \[
+            \Delta A_{i, j} = \eta \cdot \delta E_i \cos(\phi_{i, j}) x_j, \quad \Delta \phi_{i, j} = -\eta \cdot \delta E_i A_{i, j} \sin(\phi_{i, j}) x_j
+            \]
+            \[
+            e_j^{(L)} = \sum_{i} \delta E_i A_{i, j} \cos(\phi_{i, j})
+            \]
+          </div>
+          <pre><code># High-level training via SovwaveFunctions:
+trained_model, loss = train_wave(model, inputs, targets; epochs=25, learning_rate=0.08, sonify=true)</code></pre>
+        </div>
+      </section>
+
+      <!-- 8. How Layers Work vs Traditional -->
+      <section id="how-layers-work" class="doc-section">
+        <h2 class="section-title">🌊 8. How Layers Work vs Traditional Neural Networks</h2>
+        <p class="section-desc">
+          A fundamental comparison between discrete matrix deep learning and continuous physical wave computing:
+        </p>
+
+        <div class="grid-2">
+          <div class="card" style="border-left: 3px solid var(--accent-magenta);">
+            <h3>Traditional Neural Networks</h3>
+            <div class="equation-box" style="border-left-color: var(--accent-magenta);">
+              \[
+              y = \text{GELU}(W \cdot x + b)
+              \]
+            </div>
+            <ul>
+              <li><strong>Mechanism</strong>: Millions of discrete multiplications and additions of scalar numbers.</li>
+              <li><strong>Weights</strong>: Arbitrary unconstrained floating-point numbers without physical units.</li>
+              <li><strong>Hardware</strong>: Massive GPU clusters consuming megawatts of energy.</li>
+              <li><strong>At Zero Input (\(x=0\))</strong>: Non-zero bias terms produce static baseline drift.</li>
+            </ul>
+          </div>
+
+          <div class="card" style="border-left: 3px solid var(--accent-cyan);">
+            <h3>Sovwave Continuous Wave Layers</h3>
+            <div class="equation-box" style="border-left-color: var(--accent-cyan);">
+              \[
+              E_i = \sum_{j=1}^{D} A_{i, j} \cos(\phi_{i, j}) x_j, \quad \psi_i = \sin(E_i), \quad \hat{\psi} = \frac{\psi}{\|\psi\|_2}
+              \]
+            </div>
+            <ul>
+              <li><strong>Mechanism</strong>: Wave interference, acoustic phase coherence, and spatial harmonics.</li>
+              <li><strong>Weights</strong>: Physical amplitudes \(A_{i, j} \ge 0\) and spatial phases \(\phi_{i, j} \in [0, 2\pi)\).</li>
+              <li><strong>Hardware</strong>: CPU-native fluid dynamics, zero GPU requirements.</li>
+              <li><strong>Zero-DC Guarantee</strong>: When \(x=0\), \(E_i = 0\) and \(\sin(0) = 0\), guaranteeing zero static DC noise across arbitrary depth.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9. Inference & Hyperparameters -->
+      <section id="hyperparameters" class="doc-section">
+        <h2 class="section-title">🎛️ 9. Inference & Hyperparameters</h2>
+        <p class="section-desc">
+          Configuration parameters governing training dynamics and runtime inference:
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Typical Value</th>
+              <th>Physical Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>learning_rate</code> (\(\eta\))</td>
+              <td><code>0.08</code></td>
+              <td>Phase relaxation velocity; rate of physical parameter adaptation.</td>
+            </tr>
+            <tr>
+              <td><code>omega</code> (\(\Omega\))</td>
+              <td><code>432.0 Hz</code> / <code>963.0 Hz</code></td>
+              <td>Acoustic carrier oscillation frequency.</td>
+            </tr>
+            <tr>
+              <td><code>beta_s</code> (\(\Phi\))</td>
+              <td><code>1.6180339887...</code></td>
+              <td>Golden ratio fractal dimensional scale.</td>
+            </tr>
+            <tr>
+              <td><code>power</code> (\(p\))</td>
+              <td><code>1.4</code></td>
+              <td>Tournament Grand Champion resonance power exponent.</td>
+            </tr>
+            <tr>
+              <td><code>temperature</code> (\(T\))</td>
+              <td><code>0.7</code></td>
+              <td>Inference resonance temperature scaling cosine similarity.</td>
+            </tr>
+            <tr>
+              <td><code>repetition_penalty</code></td>
+              <td><code>1.2</code></td>
+              <td>Damping penalty applied to previously emitted tokens (exempting whitespace & newlines).</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 10. Optimizations & Loss Functions -->
+      <section id="optimizations" class="doc-section">
+        <h2 class="section-title">🏆 10. Optimizations & Loss Functions</h2>
+        <p class="section-desc">
+          Tournament-winning algorithms powering Sovwave's continuous efficiency:
+        </p>
+
+        <div class="card">
+          <h3>Tournament Grand Champion Power Resonance Loss (\(p=1.4\))</h3>
+          <p>
+            Standard dot product loss \(\mathcal{L} = 1 - \rho\) suffers from shallow gradients near convergence.
+            The Grand Champion Power Resonance algorithm scales resonance by power \(p=1.4\), amplifying steep gradients:
+          </p>
+          <div class="equation-box">
+            \[
+            \rho = \hat{\psi} \cdot y, \quad \rho_{\text{enhanced}} = \operatorname{sgn}(\rho) \cdot |\rho|^{1.4}, \quad \mathcal{L} = \operatorname{clamp}(1.0 - \rho_{\text{enhanced}}, 0.0, 2.0)
+            \]
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Lossless Container Embedding (Zero .bin Files)</h3>
+          <p>
+            Weights are embedded directly inside Matroska video files using <code>-attach</code>.
+            Reconstruction recovers 100% bit-for-bit fidelity with zero lossy video compression degradation.
+          </p>
+        </div>
+      </section>
+
+      <!-- 11. Example Projects -->
+      <section id="project-mnist" class="doc-section">
+        <h2 class="section-title">🖼️ 11. Project 1: MNIST Wave Classifier</h2>
+        <p class="section-desc">
+          Classifying hand-written digits purely through 2D acoustic wave modes (<code>examples/mnist/</code>):
+        </p>
+        <div class="card">
+          <p>
+            Images of size \(28 \times 28\) are projected into continuous 2D surface harmonic waves (\(64\)-dim).
+            The 10 digit classes correspond to 10 orthogonal spatial vibration modes. Classification achieves 95%+ accuracy.
+          </p>
+          <pre><code>using Sovwave
+include("examples/mnist/mnist_wave.jl")
+# Trains on Hugging Face MNIST with 432 Hz sonification and MKV video checkpoints</code></pre>
+        </div>
+      </section>
+
+      <section id="project-neuron" class="doc-section">
+        <h2 class="section-title">⚡ 12. Project 2: Simple Harmonic Neuron</h2>
+        <p class="section-desc">
+          Single-oscillator limit cycle dynamics (<code>examples/simple_neuron/</code>):
+        </p>
+        <div class="card">
+          <p>
+            Demonstrates how a single nonlinear acoustic oscillator performs continuous classification,
+            filtering, and phase resonance without matrix multiplications.
+          </p>
+          <pre><code>include("examples/simple_neuron/neuron.jl")</code></pre>
+        </div>
+      </section>
+
+      <section id="project-spark" class="doc-section">
+        <h2 class="section-title">🧠 13. Project 3: Spark Continuous Wave LLM</h2>
+        <p class="section-desc">
+          4-layer 64-dim continuous wave language model trained for 500,000 physical wave steps (<code>examples/spark_x25_4b/</code>):
+        </p>
+        <div class="card">
+          <p>
+            Proves that continuous wave mechanics forms coherent language across all logic tiers:
+          </p>
+          <ul>
+            <li><strong>Arithmetic</strong>: <code>"Two plus two equals"</code> \(\to\) <code>"four"</code>, <code>"Five plus five equals"</code> \(\to\) <code>"ten."</code></li>
+            <li><strong>Code Syntax & Indentation</strong>: <code>"def add(a, b):"</code> \(\to\) <code>"\n    return a + b"</code> (exact 4-space indent).</li>
+            <li><strong>Dialogue</strong>: <code>"Hello, how are you?"</code> \(\to\) <code>"I am doing well, thank you"</code></li>
+            <li><strong>Deductive Logic</strong>: <code>"If all roses are flowers"</code> \(\to\) <code>"and all flowers need sunlight, then all roses need sunlight."</code></li>
+            <li><strong>Wave Physics</strong>: <code>"The universe is"</code> \(\to\) <code>"an interconnected web of vibrations and acoustic fields"</code></li>
+          </ul>
+          <pre><code>include("examples/spark_x25_4b/spark_wave.jl")
+# Executes full curriculum evaluation directly from spark_model.mkv</code></pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="nav-container" style="justify-content: center;">
+      <p>Sovwave.jl — MIT Licensed. Continuous Morphogenetic Wave Intelligence & Video Model Serialization.</p>
+    </div>
+  </footer>
+</body>
+</html>

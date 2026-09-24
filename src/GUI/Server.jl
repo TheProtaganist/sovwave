@@ -134,6 +134,11 @@ function handle_client(client::Sockets.TCPSocket, gui_dir::String)
     end
 end
 
+"""
+    send_file(client::Sockets.TCPSocket, path::String, mime::String)
+
+Reads a static file from disk and transmits HTTP 200 response with correct MIME type to client.
+"""
 function send_file(client::Sockets.TCPSocket, path::String, mime::String)
     if !isfile(path)
         send_response(client, 404, "text/plain", "File Not Found")
@@ -145,6 +150,11 @@ function send_file(client::Sockets.TCPSocket, path::String, mime::String)
     write(client, data)
 end
 
+"""
+    send_json(client::Sockets.TCPSocket, json_str::String)
+
+Sends an HTTP 200 OK JSON response with CORS headers to the connected TCP client socket.
+"""
 function send_json(client::Sockets.TCPSocket, json_str::String)
     data = codeunits(json_str)
     header = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: $(length(data))\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
@@ -152,6 +162,11 @@ function send_json(client::Sockets.TCPSocket, json_str::String)
     write(client, data)
 end
 
+"""
+    send_response(client::Sockets.TCPSocket, code::Int, mime::String, body::String)
+
+Sends a generic HTTP status code response with MIME content-type and body to client.
+"""
 function send_response(client::Sockets.TCPSocket, code::Int, mime::String, body::String)
     data = codeunits(body)
     header = "HTTP/1.1 $code Status\r\nContent-Type: $mime\r\nContent-Length: $(length(data))\r\nConnection: close\r\n\r\n"

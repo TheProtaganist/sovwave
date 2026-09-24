@@ -44,6 +44,7 @@ mutable struct WaveHybridDispatcher
     batch_threshold::Int       # Crossover batch size where CUDA beats CPU
     benchmarks::Dict{Symbol, Dict{Symbol, Float64}}
 
+    # Default constructor initializing empirical crossover dispatching thresholds
     function WaveHybridDispatcher()
         new(
             :cpu,   # single forward (CPU SIMD wins on latency)

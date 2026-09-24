@@ -34,6 +34,7 @@ mutable struct WaveHead
     phases::Vector{Float64}
     temperature::Float64
 
+    # Primary constructor initializing weights with Xavier harmonic distribution and carrier phases
     function WaveHead(
         head_type::Symbol,
         input_dim::Int,

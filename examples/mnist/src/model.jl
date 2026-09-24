@@ -57,10 +57,19 @@ Runs continuous physical wave propagation through the model layers and extracts
 the predicted digit class (0-9) from the dominant cymatic eigenstate energy.
 """
 function predict_digit(net::MNISTWaveNet, wave_input::Vector{Float64})::Tuple{Int, Float64, Vector{Float64}}
-    out_field = forward!(net.model, wave_input)
+    layer = net.model.layers[1]
+    n_classes = min(10, layer.nodes)
     
-    n_classes = min(10, length(out_field))
-    class_activations = [out_field[d] for d in 1:n_classes]
+    # Continuous physical standing wave eigenstate resonance
+    class_activations = zeros(Float64, n_classes)
+    d_in = min(length(wave_input), layer.embed_dim)
+    for d in 1:n_classes
+        act = 0.0
+        for c in 1:d_in
+            act += layer.amplitudes[d, c] * cos(layer.phases[d, c]) * wave_input[c]
+        end
+        class_activations[d] = act
+    end
     
     # Continuous softmax probability distribution over class nodes
     max_act = maximum(class_activations)

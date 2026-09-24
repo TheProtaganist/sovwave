@@ -18,7 +18,7 @@ using Printf
 using LinearAlgebra
 
 export convert_tokenizer, load_tokenizer_file, load_huggingface_tokenizer, convert_hf_tokenizer
-export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokenizer, llama_tokenizer, deepseek_tokenizer, deepseek_v4_tokenizer
+export load_pretrained_tokenizer, gpt2_tokenizer, qwen_tokenizer, mistral_tokenizer, llama_tokenizer, deepseek_tokenizer, deepseek_v4_tokenizer, spark_tokenizer
 export save_tokenizer, load_tokenizer, custom_tokenizer
 
 # ASCII byte constants for fast JSON scanning
@@ -122,19 +122,20 @@ end
 """
     convert_tokenizer(
         vocab_dict::Dict{String, Int};
-        carrier_frequency::Float64 = 432.0,
-        beta_s::Float64 = 1.618033988749895
+        carrier_frequency::Float64 = 963.0,
+        beta_s::Float64 = 1.618033988749895,
+        use_phonetic::Bool = false
     )::WaveTokenizer
 
-Converts an arbitrary vocabulary dictionary (from GPT-2, Qwen, Mistral, LLaMA, etc.)
-into a continuous `WaveTokenizer` where each token is mapped to its deterministic
-continuous physical wave carrier frequency and circular phase.
+Converts an arbitrary vocabulary dictionary into a continuous `WaveTokenizer`.
+Uses standard frequency-based mapping (not phonetic).
 """
 function convert_tokenizer(
     vocab_dict::Dict{String, Int};
-    carrier_frequency::Float64 = 432.0,
-    beta_s::Float64 = 1.618033988749895
-)::WaveTokenizer
+    carrier_frequency::Float64 = 963.0,
+    beta_s::Float64 = 1.618033988749895,
+    use_phonetic::Bool = false
+)::Union{WaveTokenizer, PhoneticTokenizer}
     isempty(vocab_dict) && error("Cannot convert empty vocabulary")
 
     # Normalize to 1-based indexing
@@ -177,37 +178,46 @@ function convert_tokenizer(
     end
 
     # Map common aliases to special tokens
-    if haskey(v1, "<|endoftext|>") && !haskey(v1, "<EOS>")
-        v1["<EOS>"] = v1["<|endoftext|>"]
+    if (haskey(v1, "<|endoftext|>") || haskey(v1, "<｜end▁of▁sentence｜>")) && !haskey(v1, "<EOS>")
+        v1["<EOS>"] = haskey(v1, "<｜end▁of▁sentence｜>") ? v1["<｜end▁of▁sentence｜>"] : v1["<|endoftext|>"]
     end
     if haskey(v1, "</s>") && !haskey(v1, "<EOS>")
         v1["<EOS>"] = v1["</s>"]
     end
-    if haskey(v1, "<s>") && !haskey(v1, "<BOS>")
-        v1["<BOS>"] = v1["<s>"]
+    if (haskey(v1, "<s>") || haskey(v1, "<｜start▁of▁sentence｜>")) && !haskey(v1, "<BOS>")
+        v1["<BOS>"] = haskey(v1, "<｜start▁of▁sentence｜>") ? v1["<｜start▁of▁sentence｜>"] : v1["<s>"]
+    end
+    if (haskey(v1, "<pad>") || haskey(v1, "<｜▁pad▁｜>")) && !haskey(v1, "<PAD>")
+        v1["<PAD>"] = haskey(v1, "<｜▁pad▁｜>") ? v1["<｜▁pad▁｜>"] : v1["<pad>"]
     end
 
-    return WaveTokenizer(v1, inv_v; carrier_frequency=carrier_frequency, beta_s=beta_s)
+    if use_phonetic
+        return phonetic_tokenizer(v1; carrier_frequency=carrier_frequency)
+    end
+    
+    return WaveTokenizer(v1, inv_v; carrier_frequency=carrier_frequency, beta_s=beta_s, use_phonetic=false)
 end
 
 """
     load_tokenizer_file(
         file_path::String;
         carrier_frequency::Float64 = 432.0,
-        beta_s::Float64 = 1.618033988749895
-    )::WaveTokenizer
+        beta_s::Float64 = 1.618033988749895,
+        use_phonetic::Bool = false
+    )::Union{WaveTokenizer, PhoneticTokenizer}
 
 Loads and converts a local tokenizer file (`tokenizer.json` or `vocab.json`).
 """
 function load_tokenizer_file(
     file_path::String;
     carrier_frequency::Float64 = 432.0,
-    beta_s::Float64 = 1.618033988749895
-)::WaveTokenizer
+    beta_s::Float64 = 1.618033988749895,
+    use_phonetic::Bool = false
+)::Union{WaveTokenizer, PhoneticTokenizer}
     isfile(file_path) || error("Tokenizer file not found: $file_path")
     raw_bytes = read(file_path)
     vocab = parse_vocab_bytes(raw_bytes)
-    return convert_tokenizer(vocab; carrier_frequency=carrier_frequency, beta_s=beta_s)
+    return convert_tokenizer(vocab; carrier_frequency=carrier_frequency, beta_s=beta_s, use_phonetic=use_phonetic)
 end
 
 # Model aliases mapping short names to Hugging Face repository IDs
@@ -224,7 +234,12 @@ const MODEL_HF_ALIASES = Dict{String, String}(
     "deepseek4"   => "deepseek-ai/DeepSeek-V3",
     "deepseek_v3" => "deepseek-ai/DeepSeek-V3",
     "deepseek-v3" => "deepseek-ai/DeepSeek-V3",
-    "deepseek2"   => "deepseek-ai/DeepSeek-V2-Lite"
+    "deepseek2"   => "deepseek-ai/DeepSeek-V2-Lite",
+    "spark"       => "XHToken/Spark-X2.5-4B",
+    "spark_x"     => "XHToken/Spark-X2.5-4B",
+    "spark2_5"    => "XHToken/Spark-X2.5-4B",
+    "spark-x"     => "XHToken/Spark-X2.5-4B",
+    "spark-x2.5"  => "XHToken/Spark-X2.5-4B"
 )
 
 """
@@ -358,6 +373,16 @@ deepseek_tokenizer(; token=nothing, carrier_frequency=432.0, beta_s=1.6180339887
     load_huggingface_tokenizer("deepseek"; token=token, carrier_frequency=carrier_frequency, beta_s=beta_s)
 
 const deepseek_v4_tokenizer = deepseek_tokenizer
+
+"""
+    spark_tokenizer(; token=nothing, carrier_frequency=432.0, beta_s=1.618033988749895)::WaveTokenizer
+
+Returns the converted Spark-X2.5-4B pipeline tokenizer (131,072 tokens).
+"""
+spark_tokenizer(; token=nothing, carrier_frequency=432.0, beta_s=1.618033988749895) =
+    load_huggingface_tokenizer("spark"; token=token, carrier_frequency=carrier_frequency, beta_s=beta_s)
+
+const spark_x_tokenizer = spark_tokenizer
 
 """
     save_tokenizer(tok::WaveTokenizer, filepath::String)::String

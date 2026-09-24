@@ -23,6 +23,11 @@ using .MNISTModel
 using .MNISTTrain
 using .MNISTInfer
 
+"""
+    main()
+
+Executes the continuous wave MNIST training pipeline, saving MKV/MP4 checkpoints and running video inference.
+"""
 function main()
     println("="^85)
     println(" 🌊 SOVWAVE PRODUCTION PROJECT: CONTINUOUS WAVE MNIST CLASSIFIER 🌊")

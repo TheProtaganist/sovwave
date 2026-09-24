@@ -12,6 +12,7 @@ mutable struct LockFreeRingBuffer
     write_pos::Threads.Atomic{Int}
     read_pos::Threads.Atomic{Int}
     
+    # Inner constructor enforcing power-of-two buffer capacity for efficient modulo bitmasking
     function LockFreeRingBuffer(capacity::Int)
         if !ispow2(capacity)
             throw(ArgumentError("Capacity must be a power of 2"))

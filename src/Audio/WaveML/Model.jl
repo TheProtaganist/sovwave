@@ -6,7 +6,7 @@ n quantum lattice nodes and d embedding dimensions.
 """
 
 export WaveModel
-export model_energy, clone, forward!, mutate!, crossover
+export model_energy, clone, forward!, forward_continuous_wave!, mutate!, crossover
 
 """
     WaveModel
@@ -29,6 +29,7 @@ mutable struct WaveModel
     _accum::Vector{Float64}
     _frame_buf::Vector{Float64}
 
+    # Primary constructor pre-allocating reusable internal scratch buffers for zero-allocation propagation
     function WaveModel(layers::Vector{WaveLayer}, f_cfg::WaveFieldConfig, m_cfg::WaveModelConfig)
         max_nodes = isempty(layers) ? m_cfg.nodes : maximum(l.nodes for l in layers)
         max_dim = max(max_nodes, m_cfg.embed_dims, f_cfg.dimensions)
@@ -150,6 +151,82 @@ function forward!(model::WaveModel, input_data::AbstractVector{Float64}; t::Floa
     out_dim = isempty(model.layers) ? length(input_data) : model.layers[end].nodes
     out = Vector{Float64}(undef, out_dim)
     forward!(model, input_data, out; t=t, kwargs...)
+    return out
+end
+
+"""
+    forward_continuous_wave!(model::WaveModel, input_data::AbstractVector{Float64}, output::AbstractVector{Float64})::AbstractVector{Float64}
+
+Executes single-frame continuous physical wave propagation across all layers with layer-wise normalization.
+Matches continuous wave Hamiltonian training relaxation dynamics identically with zero heap allocations.
+"""
+function forward_continuous_wave!(
+    model::WaveModel,
+    input_data::AbstractVector{Float64},
+    output::AbstractVector{Float64}
+)::AbstractVector{Float64}
+    in_len = length(input_data)
+    max_nodes = isempty(model.layers) ? 0 : maximum(l.nodes for l in model.layers)
+    needed = max(in_len, max_nodes, model.model_config.embed_dims)
+    _ensure_buffers!(model, needed)
+
+    @inbounds for i in 1:in_len
+        model._buf_a[i] = input_data[i]
+    end
+
+    current_len = in_len
+    use_a_as_input = true
+
+    for layer in model.layers
+        n = layer.nodes
+        in_buf = use_a_as_input ? view(model._buf_a, 1:current_len) : view(model._buf_b, 1:current_len)
+        out_buf = use_a_as_input ? view(model._buf_b, 1:n) : view(model._buf_a, 1:n)
+
+        amp = layer.amplitudes
+        ph = layer.phases
+        freq = layer.frequencies
+        beta_s = layer.fractal_scales
+        frac_dims = layer.fractal_dims
+        w_speeds = layer.wave_speeds
+        omega_scaled = layer.omega * 0.001
+        inv_sqrt = 1.0 / sqrt(Float64(layer.embed_dim))
+
+        @inbounds for i in 1:n
+            # Acoustic wave transmission and nodal phase interference
+            # Superposition of incoming waves from layer (l-1) with amplitude A_ij and phase phi_ij
+            E_i = 0.0
+            @simd for j in 1:layer.embed_dim
+                in_val = j <= current_len ? in_buf[j] : 0.0
+                w_ij = amp[i, j] * cos(ph[i, j])
+                E_i += w_ij * in_val
+            end
+            # Continuous physical nodal standing wave response: sin(E_i)
+            out_buf[i] = sin(E_i)
+        end
+
+        nrm_l = norm(out_buf)
+        if nrm_l > 1e-6
+            out_buf ./= nrm_l
+        end
+
+        current_len = n
+        use_a_as_input = !use_a_as_input
+    end
+
+    final_buf = use_a_as_input ? view(model._buf_a, 1:current_len) : view(model._buf_b, 1:current_len)
+    copyto!(output, 1, final_buf, 1, min(length(output), current_len))
+    return output
+end
+
+"""
+    forward_continuous_wave!(model::WaveModel, input_data::AbstractVector{Float64})::Vector{Float64}
+
+Executes single-frame continuous physical wave propagation, allocating a single output vector.
+"""
+function forward_continuous_wave!(model::WaveModel, input_data::AbstractVector{Float64})::Vector{Float64}
+    out_dim = isempty(model.layers) ? length(input_data) : model.layers[end].nodes
+    out = Vector{Float64}(undef, out_dim)
+    forward_continuous_wave!(model, input_data, out)
     return out
 end
 
